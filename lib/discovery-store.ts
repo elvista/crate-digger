@@ -1,22 +1,18 @@
-import { mkdir, readFile, writeFile, rename, readdir, unlink } from 'node:fs/promises';
-import { join } from 'node:path';
+import {createTextStore} from './text-store.ts';
 import { randomUUID } from 'node:crypto';
 import { seal, unseal } from './spotify-session.ts';
 import type { DiggingSession, DiscoveryResult, SessionPage } from './discovery-types.ts';
 export function createDiscoveryStore(root: string, secret: string) {
+  const storage=createTextStore(root,'discovery');
   async function create(ownerId: string, result: DiscoveryResult) {
-    await mkdir(root, { recursive: true, mode: 0o700 });
-    for (const name of (await readdir(root)).filter(n => /^[a-f0-9-]{36}\.json$/.test(n)).slice(0, 200)) {
-      try { const old = unseal<DiggingSession>(await readFile(join(root, name), 'utf8'), secret, 12000000); if (!old || old.expiresAt < Date.now()) await unlink(join(root, name)); } catch {}
-    }
+    try{await storage.prune?.(Date.now()-12*3600000)}catch{}
     const session: DiggingSession = { ...result, id: randomUUID(), ownerId, createdAt: Date.now(), expiresAt: Date.now() + 12 * 3600000 };
-    const path = join(root, `${session.id}.json`), temp = `${path}.${randomUUID()}.tmp`;
-    await writeFile(temp, seal(session, secret), { mode: 0o600 }); await rename(temp, path); return session;
+    await storage.write(`${session.id}.json`,seal(session,secret));return session;
   }
   async function page(ownerId: string, id: string, cursor: string | null): Promise<SessionPage | null> {
     if (!/^[a-f0-9-]{36}$/.test(id)) return null;
     let session: DiggingSession | null;
-    try { session = unseal<DiggingSession>(await readFile(join(root, `${id}.json`), 'utf8'), secret, 12000000); } catch { return null; }
+    try { session = unseal<DiggingSession>((await storage.read(`${id}.json`))??undefined, secret, 12000000); } catch { return null; }
     if (!session || session.ownerId !== ownerId || session.expiresAt < Date.now()) return null;
     let offset = 0;
     if (cursor) {

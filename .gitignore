@@ -45,3 +45,5 @@ src/plugins/impeccable-live.client.ts
 .DS_Store
 /*.png
 .impeccable/
+.vercel
+.env*
