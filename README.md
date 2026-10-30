@@ -2,6 +2,8 @@
 
 ### Find the tracks that make your next set.
 
+[Open Crate Digger](https://crate-digger-nine-pink.vercel.app)
+
 Turn the playlists you already love into a new digging session. Listen, swipe, and send your discoveries straight to Spotify—without losing the flow.
 
 Crate Digger is a focused listening room for DJs and curious music heads. Bring your taste. Follow the sound. Build your next set one track at a time.
