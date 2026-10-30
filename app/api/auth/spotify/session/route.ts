@@ -1,0 +1,4 @@
+import { hasPlaybackScope, hasPlaylistScope, hasPlaylistWriteScope } from '@/lib/playback-settings';
+import { appConfig } from '@/lib/spotify-session';
+import { readSession, spotifyRequest, spotifyErrorResponse } from '@/lib/spotify';
+export async function GET(){let configured=true;try{appConfig();}catch{configured=false;}const session=await readSession();if(!session)return Response.json({configured,authenticated:false},{headers:{'Cache-Control':'no-store'}});try{const profile=await spotifyRequest('me');return Response.json({configured,authenticated:true,user:{playlistWriteAuthorized:hasPlaylistWriteScope(session.scope),playlistAuthorized:hasPlaylistScope(session.scope),playbackAuthorized:hasPlaybackScope(session.scope),id:session.userId,name:profile.display_name||session.name}},{headers:{'Cache-Control':'no-store'}});}catch(e){return spotifyErrorResponse(e);}}

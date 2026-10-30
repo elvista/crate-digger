@@ -1,0 +1,9 @@
+.git/
+.data/
+.env*
+!.env.example
+.impeccable/
+*.png
+node_modules/
+.next/
+*.tsbuildinfo

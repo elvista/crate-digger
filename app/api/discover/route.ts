@@ -1,0 +1,4 @@
+import { genreQueries } from '@/lib/catalog';
+import { normalizeSearch, parseOffset } from '@/lib/spotify-data';
+import { spotifyRequest, spotifyErrorResponse } from '@/lib/spotify';
+export async function GET(request:Request){const query=new URL(request.url).searchParams;const genre=query.get('genre')||'Deep house';if(!Object.hasOwn(genreQueries,genre))return Response.json({error:'Choose a supported genre.'},{status:400});let offset:number;try{offset=parseOffset(query.get('cursor'));}catch{return Response.json({error:'Invalid catalog cursor.'},{status:400});}try{const params=new URLSearchParams({q:genreQueries[genre],type:'track',limit:'10',offset:String(offset)});return Response.json(normalizeSearch(await spotifyRequest(`search?${params}`),genre,offset),{headers:{'Cache-Control':'no-store'}});}catch(e){return spotifyErrorResponse(e);}}

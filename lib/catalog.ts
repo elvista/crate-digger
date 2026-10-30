@@ -1,0 +1,6 @@
+export type Track = { id:string; title:string; artist:string; genre:string; album:string; artworkUrl:string|null; sourceUrl:string; durationMs:number; explicit:boolean; artistIds?:string[]; albumId?:string; isrc?:string|null; reason?:string; similaritySource?:'cosine.club'; similarityTrackId?:string; similarityScore?:number; similaritySeedCount?:number; bpm?:number|null; musicalKey?:string|null; metadataSource?:string; waveform?:{peaks:number[];durationMs:number;source:string}|null };
+export type TrackPage={items:Track[];nextCursor:string|null};
+export const genres=['Deep house','Melodic techno','Tech house'];
+export const genreQueries:Record<string,string>={'Deep house':'genre:"deep house"','Melodic techno':'genre:"melodic techno"','Tech house':'genre:"tech house"'};
+export class CatalogError extends Error{status:number;constructor(message:string,status:number){super(message);this.status=status;}}
+export const catalog={async listTracks(genre:string,cursor?:string|null,signal?:AbortSignal):Promise<TrackPage>{const query=new URLSearchParams({genre});if(cursor)query.set('cursor',cursor);const response=await fetch(`/api/discover?${query}`,{signal,cache:'no-store'});const data=await response.json();if(!response.ok)throw new CatalogError(data.error||'Spotify is unavailable. Please retry.',response.status);return data;}};

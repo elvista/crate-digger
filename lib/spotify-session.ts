@@ -1,0 +1,13 @@
+import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+export type Session = { accessToken: string; refreshToken: string; expiresAt: number; userId: string; name: string; scope?: string };
+export type Login = { state: string; verifier: string; expiresAt: number };
+function key(secret: string) { if(secret.length<32)throw new Error('SESSION_SECRET must contain at least 32 characters.');return createHash('sha256').update(secret).digest(); }
+export function seal(value:unknown,secret:string){const iv=randomBytes(12);const cipher=createCipheriv('aes-256-gcm',key(secret),iv);const body=Buffer.concat([cipher.update(JSON.stringify(value),'utf8'),cipher.final()]);return Buffer.concat([iv,cipher.getAuthTag(),body]).toString('base64url');}
+export function unseal<T>(value:string|undefined,secret:string,maxLength=6000):T|null{try{if(!value||value.length>maxLength)return null;const data=Buffer.from(value,'base64url');const decipher=createDecipheriv('aes-256-gcm',key(secret),data.subarray(0,12));decipher.setAuthTag(data.subarray(12,28));return JSON.parse(Buffer.concat([decipher.update(data.subarray(28)),decipher.final()]).toString('utf8'));}catch{return null;}}
+export function createLogin():Login{return {state:randomBytes(32).toString('base64url'),verifier:randomBytes(48).toString('base64url'),expiresAt:Date.now()+600000};}
+export function challenge(verifier:string){return createHash('sha256').update(verifier).digest('base64url');}
+export function validState(login:Login|null,state:string|null){if(!login||!state||login.expiresAt<Date.now())return false;const a=Buffer.from(login.state),b=Buffer.from(state);return a.length===b.length&&timingSafeEqual(a,b);}
+export function appConfig(){const clientId=process.env.SPOTIFY_CLIENT_ID?.trim();const secret=process.env.SESSION_SECRET||'';const redirect=process.env.SPOTIFY_REDIRECT_URI||'http://127.0.0.1:3000/api/auth/spotify/callback';if(!clientId||secret.length<32)throw new Error('Spotify sign-in needs server configuration.');const url=new URL(redirect);if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['127.0.0.1','[::1]'].includes(url.hostname)))throw new Error('Spotify requires HTTPS or an explicit loopback IP for the redirect URI.');if(url.pathname!=='/api/auth/spotify/callback'||url.search||url.hash||url.username||url.password)throw new Error('Invalid Spotify redirect URI.');return {clientId,secret,redirect,origin:url.origin,secure:url.protocol==='https:'};}
+
+// Next.js may normalize request.url to the bound server hostname.
+export function matchesAppHost(request:Request,origin:string){return (request.headers.get('host')||new URL(request.url).host)===new URL(origin).host;}
