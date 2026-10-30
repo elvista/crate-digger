@@ -1,3 +1,4 @@
+import type {PlaylistSourceCache} from './playlist-source-cache.ts';
 import { normalizeTrack } from './spotify-data.ts';
 import type { Track } from './catalog.ts';
 import type { Playlist, SourceSelection, DiscoveryResult } from './discovery-types.ts';
@@ -50,7 +51,7 @@ export function diversify(tracks: Track[], excluded: Set<string>, limit = 50): T
   return result;
 }
 export type SpotifyRead = (path: string) => Promise<unknown>;
-export async function generateDiscovery(selection: SourceSelection, api: SpotifyRead, signal?: AbortSignal, progress: (stage: string) => void = () => {}, audioSimilar?: (seeds:Track[])=>Promise<{items:Track[];warnings:string[]}>): Promise<DiscoveryResult> {
+export async function generateDiscovery(selection: SourceSelection, api: SpotifyRead, signal?: AbortSignal, progress: (stage: string) => void = () => {}, audioSimilar?: (seeds:Track[])=>Promise<{items:Track[];warnings:string[]}>, playlistCache?:PlaylistSourceCache): Promise<DiscoveryResult> {
   const check = () => { if (signal?.aborted) throw new DiscoveryError('Generation cancelled.', 499); };
   const read = async (path: string) => { check(); const result = await api(path); check(); return result; };
   const groups: Track[][] = [], sources: string[] = [], warnings: string[] = [];
@@ -59,6 +60,13 @@ export async function generateDiscovery(selection: SourceSelection, api: Spotify
   for (const id of selection.playlistIds) {
     const playlist = normalizePlaylist(await read(`playlists/${id}`));
     if (!playlist) throw new DiscoveryError('Spotify returned an unreadable playlist.', 502);
+    const cached=playlist.snapshotId?await playlistCache?.get(id,playlist.snapshotId):null;
+    if(cached){
+      groups.push(cached.tracks.map(t=>({...t,genre:selection.genre||'Playlist selection',reason:`From ${playlist.name}`})));sources.push(playlist.name);snapshots[id]=playlist.snapshotId;
+      if(cached.truncated)warnings.push(`${playlist.name}: using the first 500 items. Narrow the playlist to include later tracks.`);
+      if(!cached.tracks.length)warnings.push(`${playlist.name} has no playable music tracks.`);
+      continue;
+    }
     const group: Track[] = []; let offset = 0; let more = true;
     while (more && offset < 500) {
       const page = object(await read(`playlists/${id}/items?limit=50&offset=${offset}&additional_types=track`));
@@ -67,6 +75,7 @@ export async function generateDiscovery(selection: SourceSelection, api: Spotify
       offset += 50; more = typeof page.next === 'string' && page.items.length > 0;
     }
     if(playlist.snapshotId){const latest=normalizePlaylist(await read(`playlists/${id}`));if(!latest||latest.snapshotId!==playlist.snapshotId)throw new DiscoveryError(`${playlist.name} changed while loading. Try generating again.`,409);snapshots[id]=playlist.snapshotId;}
+    if(playlist.snapshotId)await playlistCache?.set(id,playlist.snapshotId,{tracks:group,truncated:more});
     if (more) warnings.push(`${playlist.name}: using the first 500 items. Narrow the playlist to include later tracks.`);
     if (!group.length) warnings.push(`${playlist.name} has no playable music tracks.`);
     groups.push(group); sources.push(playlist.name);
@@ -84,9 +93,9 @@ export async function generateDiscovery(selection: SourceSelection, api: Spotify
   if(selection.relatedMethod==='cosine') {
     if(!audioSimilar)throw new DiscoveryError('cosine.club audio similarity is not configured.',503);
     const result=await audioSimilar(original);check();
-    const items=diversify(result.items.filter(t=>!t.isrc||!seedRecordings.has(t.isrc)),excluded);
+    const items=uniqueTracks(result.items.filter(t=>!t.isrc||!seedRecordings.has(t.isrc)),excluded).slice(0,50);
     const removed=result.items.length-items.length;
-    return {items,method:'cosine',warnings:[...warnings,...result.warnings,...(removed?[`${removed} matches were excluded as source songs, previously reviewed tracks, duplicate recordings, or repeated artists. ${items.length} tracks remain in this queue.`]:[])],sources,snapshots,seedCount:original.length};
+    return {items,method:'cosine',warnings:[...warnings,...result.warnings,...(removed?[`${removed} matches were excluded as source songs, previously reviewed tracks, duplicate recordings, or unavailable recordings. ${items.length} tracks remain in this queue.`]:[])],sources,snapshots,seedCount:original.length};
   }
   let method: DiscoveryResult['method'] = 'artists'; const candidates: Track[] = [];
   progress('Finding related tracks');

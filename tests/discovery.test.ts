@@ -30,3 +30,13 @@ test('playlist changes during pagination are rejected rather than mixing snapsho
 test('Spotify features yield only verified tempo/key and never a fabricated waveform',()=>{assert.deepEqual(featuresToMetadata({tempo:124.432,key:9,mode:0}),{bpm:124.4,musicalKey:'A minor',source:'Spotify audio features',waveform:null});assert.equal(featuresToMetadata({tempo:0,key:-1,mode:0}),null);});
 
 test('sessions really expire even when an old cursor was valid',async()=>{const root=await mkdtemp(join(tmpdir(),'crate-expiry-'));try{const secret='x'.repeat(64);const store=createDiscoveryStore(root,secret);const session=await store.create('owner',{items:[track(1)],method:'playlist',sources:[],warnings:[],seedCount:1});await writeFile(join(root,`${session.id}.json`),seal({...session,expiresAt:Date.now()-1},secret));assert.equal(await store.page('owner',session.id,null),null);}finally{await rm(root,{recursive:true,force:true})}});
+test('resumed matching updates only the owner session and preserves its paging identity',async()=>{
+ const root=await mkdtemp(join(tmpdir(),'crate-resume-'));try{
+ const store=createDiscoveryStore(root,'x'.repeat(64));
+ const initial={items:[track(1)],method:'cosine' as const,warnings:[],sources:['Seed'],seedCount:1,generation:{status:'running' as const,target:50,resolved:1}};
+ const session=await store.create('owner',initial);
+ assert.equal(await store.replace('other',session.id,{...initial,items:[track(2)]}),false);
+ assert.equal(await store.replace('owner',session.id,{...initial,items:Array.from({length:50},(_,i)=>track(i+1)),generation:{status:'complete',target:50,resolved:50}}),true);
+ const restored=await store.page('owner',session.id,null);assert.equal(restored?.total,50);assert.equal(restored?.generation?.status,'complete');assert.equal(restored?.id,session.id);assert.equal('ownerId' in restored!,false);
+ }finally{await rm(root,{recursive:true,force:true})}
+});

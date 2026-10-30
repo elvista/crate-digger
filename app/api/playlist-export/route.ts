@@ -21,6 +21,8 @@ export async function POST(request:Request){const locks:(()=>Promise<void>)[]=[]
  const root=join(process.cwd(),'.data/playlist-exports');const storage=createTextStore(root,'playlist-exports');const owner=createHash('sha256').update(user.userId).digest('hex');
  if(input.mode==='finds')locks.push(await storage.lock(`${owner}/crate-finds`));
  const path=`${owner}/${input.operationId}.json`;locks.push(await storage.lock(path));
- const result=await exportPlaylist(input,user.userId,spotifyRequest,async()=>{const value=await storage.read(path);return value?JSON.parse(value) as ExportReceipt:null},async receipt=>{await storage.write(path,JSON.stringify(receipt))});
+ const knownFindsId=input.mode==='finds'?await storage.read(`${owner}/finds-playlist-id`):null;
+ const result=await exportPlaylist(input,user.userId,(path,options)=>spotifyRequest(path,{...options,fresh:true}),async()=>{const value=await storage.read(path);return value?JSON.parse(value) as ExportReceipt:null},async receipt=>{await storage.write(path,JSON.stringify(receipt))},knownFindsId??undefined);
+ if(input.mode==='finds')await storage.write(`${owner}/finds-playlist-id`,result.playlistId);
  return Response.json(result,{headers:noStore});
  }catch(e){return apiError(e instanceof StoreLockedError?new SpotifyError(e.message,409):e instanceof PlaylistExportError?new SpotifyError(e.message,e.status):e)}finally{for(const release of locks.reverse())try{await release()}catch{}}}

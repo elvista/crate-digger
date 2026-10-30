@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/*.test.ts"
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:only": "node --experimental-strip-types --test",
+    "rekordbox:check": ".data/rekordbox/venv/bin/python scripts/rekordbox/bridge.py health"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.2",

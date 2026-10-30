@@ -18,13 +18,19 @@ export function parseExport(value:unknown):ExportInput {
 type API=(path:string,options?:{method?:'GET'|'POST';body?:string})=>Promise<any>;
 // Receipts bind retries to the exact request. Existing-item reads recover safely
 // from a successful append whose HTTP response was lost.
-export async function exportPlaylist(input:ExportInput,userId:string,api:API,load:()=>Promise<ExportReceipt|null>,save:(receipt:ExportReceipt)=>Promise<void>):Promise<ExportResult>{
+export async function exportPlaylist(input:ExportInput,userId:string,api:API,load:()=>Promise<ExportReceipt|null>,save:(receipt:ExportReceipt)=>Promise<void>,knownFindsId?:string):Promise<ExportResult>{
  const signature=JSON.stringify({uris:input.uris,mode:input.mode,name:input.name,playlistId:input.playlistId,public:input.public});
  let receipt=await load();
  if(receipt&&receipt.signature!==signature)throw new PlaylistExportError('This save request changed. Reopen Save to Spotify.',409);
  if(receipt?.phase==='done'&&receipt.result)return receipt.result;
  if(receipt?.phase==='creating'&&input.mode!=='finds')throw new PlaylistExportError('Spotify may have created this playlist, but confirmation was lost. Check Spotify and choose that playlist under Existing playlist before retrying.',409);
  let playlistId=receipt?.playlistId||input.playlistId;
+ let knownPlaylist:any=null;
+ if(input.mode==='finds'&&!playlistId&&knownFindsId&&/^[A-Za-z0-9]{22}$/.test(knownFindsId)){
+  try{const p=await api(`playlists/${knownFindsId}`);if(p?.owner?.id===userId&&p.name==='Crate Finds'){playlistId=knownFindsId;knownPlaylist=p}}
+  catch(e){if((e as {status?:number}).status!==404)throw e}
+ }
+
  if(input.mode==='finds'&&!playlistId){
   let offset=0,more=true;
   while(more&&offset<10000){
@@ -44,7 +50,7 @@ export async function exportPlaylist(input:ExportInput,userId:string,api:API,loa
   if(typeof created?.id!=='string'||!/^[A-Za-z0-9]{22}$/.test(created.id))throw new PlaylistExportError('Spotify did not confirm the new playlist. Check Spotify before retrying.',502);
   playlistId=created.id;receipt={signature,phase:'adding',playlistId};await save(receipt);
  }
- const playlist=await api(`playlists/${playlistId}`);
+ const playlist=knownPlaylist??await api(`playlists/${playlistId}`);
  if(playlist?.owner?.id!==userId)throw new PlaylistExportError('Choose a playlist owned by your Spotify account.',403);
  const existing=new Set<string>();let offset=0,itemCount=0,more=true;
  while(more&&offset<10000){

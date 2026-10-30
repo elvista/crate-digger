@@ -24,6 +24,7 @@ You can also dig through the original tracks in your selected playlists.
 - **Drop into the good part.** Playback starts halfway through each song by default. Change the starting position in Settings, scrub the timeline, or jump ten seconds in either direction.
 - **Save straight to Spotify.** A right swipe or Save adds the song to **Crate Finds**. The app creates the playlist privately if it does not exist, and reuses it when it does.
 - **Put a track in the right place.** Swipe up to choose another Spotify playlist. Recently used destinations appear first.
+- **Explore the versions.** Dig through originals, edits, and remixes. Alternate Spotify versions are labeled separately from the recording analyzed by cosine.club.
 - **See what is coming.** A compact, collapsible Up next list shows the generated queue beneath the deck.
 - **Keep your hands on the keyboard.** Navigate, audition, and save with shortcuts. The playlist picker supports arrow-key navigation and Enter to add and continue.
 
@@ -57,7 +58,7 @@ Undo brings a track back for review; it does not remove a song already saved to 
 
 ## Built with the music in mind
 
-Crate Digger uses live Spotify catalog data and Spotify playback. Audio-similarity discovery comes from [cosine.club](https://cosine.club). Related tracks are included only when the app can confidently match the Spotify version.
+Crate Digger uses live Spotify catalog data and Spotify playback. Audio-similarity discovery comes from [cosine.club](https://cosine.club). Exact Spotify matches are distinguished from related originals, edits, and remixes found in Spotify. Related versions do not inherit the audio-similarity score of a different recording.
 
 In-browser playback requires **Spotify Premium**. Similarity coverage depends on the seed tracks available in cosine.club. BPM, key, and waveform information appear when verified data is available; the app does not invent missing analysis.
 

@@ -72,3 +72,31 @@ test('separate Save actions reuse Crate Finds and append only the newly selected
  assert.equal((await exportPlaylist(input({mode:'finds',uris:[uri(2)]}),'owner',api,second.load,second.save)).count,2);
  assert.equal(creates,1);assert.deepEqual([...tracks],[uri(1),uri(2)]);
 });
+test('remembered Crate Finds avoids a library scan but still checks ownership and current contents',async()=>{
+ const s=store(),calls:string[]=[];
+ const result=await exportPlaylist(input({mode:'finds'}),'owner',async(path,options)=>{
+ calls.push(path);if(path.startsWith('me/playlists'))throw new Error('No library scan needed');
+ if(options)return{snapshot_id:'updated'};
+ return path.includes('/items')?{items:[{item:{uri:uri(2)}}],next:null}:{id:id(9),name:'Crate Finds',owner:{id:'owner'}};
+ },s.load,s.save,id(9));
+ assert.equal(result.added,1);assert.equal(result.count,2);assert.equal(calls.length,3);
+});
+test('a renamed or unowned remembered playlist triggers fresh discovery of the correct Crate Finds',async()=>{
+ for(const stale of [{name:'Renamed',owner:{id:'owner'}},{name:'Crate Finds',owner:{id:'another'}}]){
+ const s=store();let scans=0;
+ const result=await exportPlaylist(input({mode:'finds'}),'owner',async(path,options)=>{
+ if(path===`playlists/${id(8)}`)return{id:id(8),...stale};
+ if(path.startsWith('me/playlists?')){scans++;return{items:[{id:id(9),name:'Crate Finds',owner:{id:'owner'}}],next:null}}
+ if(options)return{};return path.includes('/items')?{items:[],next:null}:{id:id(9),name:'Crate Finds',owner:{id:'owner'}};
+ },s.load,s.save,id(8));assert.equal(result.playlistId,id(9));assert.equal(scans,1);
+ }
+});
+test('a deleted remembered playlist falls back to lookup without blindly recreating it',async()=>{
+ const s=store();let creates=0;
+ const result=await exportPlaylist(input({mode:'finds'}),'owner',async(path,options)=>{
+ if(path===`playlists/${id(8)}`)throw Object.assign(new Error('Deleted'),{status:404});
+ if(path.startsWith('me/playlists?'))return{items:[{id:id(9),name:'Crate Finds',owner:{id:'owner'}}],next:null};
+ if(path==='me/playlists'){creates++;return{id:id(10)}}
+ if(options)return{};return path.includes('/items')?{items:[],next:null}:{id:id(9),name:'Crate Finds',owner:{id:'owner'}};
+ },s.load,s.save,id(8));assert.equal(result.playlistId,id(9));assert.equal(creates,0);
+});

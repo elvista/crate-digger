@@ -1,0 +1,12 @@
+bidict==0.24.1
+construct==2.10.70
+numpy==2.5.4
+packaging==26.3
+psutil==7.2.2
+pyrekordbox==0.5.0
+python-dateutil==3.0.0
+six==1.17.0
+sqlalchemy==2.1.6
+sqlcipher3-wheels==0.5.7
+typing-extensions==4.16.0
+tzdata==2026.6

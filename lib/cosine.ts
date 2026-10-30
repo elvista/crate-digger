@@ -1,3 +1,7 @@
+import {createProviderCache,ProviderPausedError} from './provider-cache';
+import {createTextStore} from './text-store';
+import {join} from 'node:path';
+import {createHash} from 'node:crypto';
 import 'server-only';
 import { CosineError, type ProviderRead } from './cosine-core';
 
@@ -7,7 +11,8 @@ let windowStarted=0, requests=0,blockedUntil=0;
 export function createCosineReader(signal?:AbortSignal): ProviderRead {
   const key=process.env.COSINE_API_KEY?.trim();
   if(!key)throw new CosineError('Add COSINE_API_KEY to the server environment to enable cosine.club audio similarity. Get a key at cosine.club/account/api.',503);
-  return async(path,options):Promise<unknown>=>{
+  const durable=createProviderCache(createTextStore(join(process.cwd(),'.data/provider-cache'),'provider-cache'),`cosine:${createHash('sha256').update(key).digest('hex')}`);
+  const reader:ProviderRead=async(path,options):Promise<unknown>=>{
     if(!(options?.method==='POST'?path==='search/bulk':/^(search\?|tracks\/[a-zA-Z0-9_-]{1,100}\/similar\?)/.test(path)))throw new CosineError('Invalid cosine.club request.',400);
     signal?.throwIfAborted();
     const cacheKey=`${options?.method||'GET'}:${path}:${options?JSON.stringify(options.body):''}`;
@@ -26,4 +31,5 @@ export function createCosineReader(signal?:AbortSignal): ProviderRead {
     if(!value||typeof value!=='object'||(value as {success?:boolean}).success!==true)throw new CosineError('cosine.club returned an unsuccessful response. Try again.');
     if(cache.size>=500)cache.delete(cache.keys().next().value!);cache.set(cacheKey,{expires:Date.now()+60*60*1000,value});return value;
   };
+  return async(path,options)=>{try{return await durable(`${path}:${options?JSON.stringify(options.body):''}`,3600000,()=>reader(path,options))}catch(e){if(e instanceof ProviderPausedError)throw new CosineError('cosine.club matching is paused.',429,e.retryAfter);throw e}};
 }

@@ -23,5 +23,11 @@ export function createDiscoveryStore(root: string, secret: string) {
     const { ownerId: _owner, items, ...publicSession } = session;
     return { ...publicSession, items: items.slice(offset, offset + 20), total: items.length, nextCursor: offset + 20 < items.length ? seal({ ownerId, id, offset: offset + 20, expiresAt: session.expiresAt }, secret) : null };
   }
-  return { create, page };
+  async function replace(ownerId:string,id:string,result:DiscoveryResult){
+    if(!/^[a-f0-9-]{36}$/.test(id))return false;
+    const raw=await storage.read(`${id}.json`);const session=unseal<DiggingSession>(raw??undefined,secret,12000000);
+    if(!session||session.ownerId!==ownerId||session.expiresAt<Date.now())return false;
+    await storage.write(`${id}.json`,seal({...session,...result,id:session.id,ownerId:session.ownerId},secret));return true;
+  }
+  return { create, page, replace };
 }
