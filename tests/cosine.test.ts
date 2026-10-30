@@ -37,7 +37,7 @@ test('provider rate limits and cancellation stop generation without fallback req
 test('source selection routes cosine sessions through the provider and excludes seed/reviewed records',async()=>{
  let providerCalls=0;
  const result=await generateDiscovery({...selection(),reviewedIds:[`spotify:${id(2)}`]},async path=>{assert.equal(path,`tracks/${id(1)}`);return raw(1)},undefined,undefined,async seeds=>{providerCalls++;assert.equal(seeds[0].id,seed.id);return {items:[seed,normalizeTrack(raw(2),'x')!,normalizeTrack(raw(3),'x')!],warnings:['Audio similarity']}});
- assert.equal(providerCalls,1);assert.equal(result.method,'cosine');assert.deepEqual(result.items.map(t=>t.id),[`spotify:${id(3)}`]);
+ assert.equal(providerCalls,1);assert.equal(result.method,'cosine');assert.deepEqual(result.items.map(t=>t.id),[`spotify:${id(3)}`]);assert.match(result.warnings.join(' '),/2 matches were excluded/);
 });
 test('playlist-only digging does not require or call cosine',async()=>{
  const result=await generateDiscovery(selection('playlist'),async()=>raw(1));assert.equal(result.method,'playlist');assert.equal(result.items.length,1);
@@ -68,5 +68,26 @@ test('bulk candidates supported by multiple sources rank first, with duplicate o
 });
 test('an unmatched bulk track retries single-track lookup without accepting another remix',async()=>{
  const calls:string[]=[];const result=await cosineDiscovery([seed],async path=>{calls.push(path);if(path==='search/bulk')return{data:{results:[],unmatched:['Example - Night (Club Remix)']}};if(path.startsWith('search?'))return{data:[cosineTrack(9,'Night - Club Remix')]};return{data:{similar_tracks:[cosineTrack(2,'Day')]}}},async()=>({tracks:{items:[raw(2,'Day')]}}));
- assert.equal(calls.length,3);assert.equal(calls[2],'tracks/9/similar?limit=20');assert.equal(result.items.length,1);
+ assert.equal(calls.length,3);assert.equal(calls[2],'tracks/9/similar?limit=50');assert.equal(result.items.length,1);
+});
+test('Spotify reissues with different ISRCs and matching durations still produce a recommendation',async()=>{
+ const result=await cosineDiscovery([seed],async()=>bulk(seed,[cosineTrack(2,'Soul Sisters','Weldon Irvine')]),async()=>({tracks:{items:[
+  {...raw(2,'Soul Sisters','Weldon Irvine'),duration_ms:456813,external_ids:{isrc:'USHKR0980903'}},
+  {...raw(3,'Soul Sisters','Weldon Irvine'),duration_ms:456813,external_ids:{isrc:'JPV502300098'}}
+ ]}}));
+ assert.equal(result.items.length,1);assert.equal(result.items[0].title,'Soul Sisters');assert.equal(result.items[0].similaritySource,'cosine.club');
+});
+test('different-length recordings with the same title remain ambiguous and are excluded',async()=>{
+ const result=await cosineDiscovery([seed],async()=>bulk(seed,[cosineTrack(2,'Song','Artist')]),async()=>({tracks:{items:[
+  {...raw(2,'Song','Artist'),duration_ms:660480,external_ids:{isrc:'USME30902236'}},
+  {...raw(3,'Song','Artist'),duration_ms:591706,external_ids:{isrc:'USBQU1300035'}}
+ ]}}));
+ assert.equal(result.items.length,0);
+});
+test('single-song discovery expands a full 20-neighbor bulk result through the dedicated 50-song endpoint',async()=>{
+ const neighbors=Array.from({length:50},(_,i)=>cosineTrack(i+10,`Related ${i}`,`Artist ${i}`));const calls:string[]=[];
+ const result=await cosineDiscovery([seed],async path=>{calls.push(path);if(path==='search/bulk')return bulk(seed,neighbors.slice(0,20));assert.equal(path,'tracks/1/similar?limit=50');return{data:{similar_tracks:neighbors}}},async path=>{
+  const q=new URLSearchParams(path.split('?')[1]).get('q')!;const index=Number(/Related (\d+)/.exec(q)![1]);return{tracks:{items:[raw(index+10,`Related ${index}`,`Artist ${index}`)]}};
+ });
+ assert.equal(result.items.length,50);assert.equal(new Set(result.items.map(t=>t.id)).size,50);assert.deepEqual(calls,['search/bulk','tracks/1/similar?limit=50']);
 });

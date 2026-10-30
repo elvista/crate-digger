@@ -53,7 +53,7 @@ Official documentation:
 
 Choose **playlists & seed tracks** above the deck. Select up to 10 playlists and 25 individual seeds, search by track/artist, or paste an `open.spotify.com` URL / Spotify URI. Reconnect Spotify once for private/collaborative playlist-read permission. Only accessible playlists can be read. Discovery reads sources; explicit Save actions write to Spotify playlists.
 
-- **Dig selected tracks** paginates playlist contents, removes unavailable/local/episode items, and merges originals without duplicates. Each playlist is bounded at 500 source items; truncation is explicitly reported.
+- **Play source songs only** paginates playlist contents, removes unavailable/local/episode items, and merges originals without duplicates. Each playlist is bounded at 500 source items; truncation is explicitly reported.
 - **Find related tracks** attempts the app's Spotify Recommendations endpoint, batching at most five seed tracks per request. If Spotify denies that feature (403/404), the app switches to clearly labeled **artist-based discovery** using other releases by seed artists. This fallback does not claim audio similarity.
 - Seed sampling balances multiple sources across playlist positions. Selected individual seeds take priority. Related queues exclude source IDs, reviewed IDs and matching ISRCs where returned; up to 50 diverse candidates are retained, with at most three per primary artist.
 - Generation can be cancelled. A replacement queue is installed only after successful completion. Rate limits and transient failures do not trigger further fallback requests.
@@ -101,3 +101,5 @@ Requires a persistent local Node process plus yt-dlp, ffmpeg/ffprobe and `/usr/b
 YouTube matches are metadata-based suggestions, not verified identical recordings. Users review candidate versions before starting a job; use audio you are authorized to download. MP3 conversion cannot restore quality missing from a compressed source. Spotify source lists are capped at the existing 500-items-per-playlist ingestion limit and the page offers next-50 batches for the remaining loaded tracks.
 
 Downloads accepts one playlist and one active conversion job per account at a time; each job may contain multiple selected songs.
+
+Single-song cosine discovery expands a full bulk response through the dedicated similarity endpoint (up to 50 neighbors). Spotify reissues with different ISRCs are accepted only when exact artist/version text and near-identical durations agree; materially different cuts remain excluded.

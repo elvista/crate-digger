@@ -13,6 +13,18 @@ const object = (v: unknown): Record<string, unknown> => v && typeof v === 'objec
 export function recordingText(value: string) { return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim(); }
 function sameArtist(a: string, b: string) { return recordingText(a.split(',')[0]) === recordingText(b.split(',')[0]); }
 export function sameRecording(a: {title:string;artist:string}, b: {title:string;artist:string}) { return recordingText(a.title) === recordingText(b.title) && sameArtist(a.artist, b.artist); }
+// Reissues can carry different ISRCs for the same named recording. Accept them
+// only when the exact artist/version matches and their durations agree closely.
+export function chooseSpotifyRecording(matches: Track[]): Track | null {
+  if(!matches.length)return null;
+  const recordings=new Set(matches.flatMap(track=>track.isrc?[track.isrc]:[]));
+  if(recordings.size>1){
+    const durations=matches.map(track=>track.durationMs);
+    const shortest=Math.min(...durations),longest=Math.max(...durations);
+    if(shortest<=0||longest-shortest>Math.max(2000,shortest*.005))return null;
+  }
+  return matches[0];
+}
 export function cosineTracks(value: unknown): CosineTrack[] {
   if (!Array.isArray(value)) throw new CosineError('cosine.club returned an unreadable track list. Try again.');
   return value.flatMap(raw => {
@@ -28,6 +40,7 @@ export async function cosineDiscovery(seeds: Track[], cosine: ProviderRead, spot
   const candidates = new Map<string,Candidate>();
   const uniqueSeeds=[...new Map(seeds.map(t=>[`${recordingText(t.artist.split(',')[0])}|${recordingText(t.title)}`,t])).values()];
   const matchedSeeds=new Set<string>();
+  let singleMatch: {seed:Track;match:CosineTrack}|undefined;
   function add(seed:Track,values:unknown) {
     for(const track of cosineTracks(values)) {
       if(uniqueSeeds.some(original=>sameRecording(original,track)))continue;
@@ -52,7 +65,15 @@ export async function cosineDiscovery(seeds: Track[], cosine: ProviderRead, spot
       const match=cosineTracks([result.track])[0];
       if(!match||!sameRecording(seed,match))continue;
       matchedSeeds.add(seed.id);add(seed,result.similar_tracks);
+      if(uniqueSeeds.length===1&&Array.isArray(result.similar_tracks)&&result.similar_tracks.length>=20)singleMatch={seed,match};
     }
+  }
+  // Bulk responses are capped at 20 neighbors even when a larger limit is sent.
+  // A single seed can use the dedicated endpoint's larger, verified 50-song pool.
+  if(singleMatch){
+    progress('Finding more similar songs for this seed');
+    try{const response=object(await read(cosine,`tracks/${encodeURIComponent(singleMatch.match.id)}/similar?limit=50`));add(singleMatch.seed,object(response.data).similar_tracks)}
+    catch(e){if(!(e instanceof CosineError&&e.status===404))throw e;}
   }
   // Exact bulk lookup can miss punctuation differences. Retry a small number as
   // single catalog searches, but never retry rate limits or change remix names.
@@ -63,7 +84,7 @@ export async function cosineDiscovery(seeds: Track[], cosine: ProviderRead, spot
     const match=cosineTracks(response.data).find(t=>sameRecording(seed,t));
     if(!match)continue;
     try {
-      const similar=object(await read(cosine,`tracks/${encodeURIComponent(match.id)}/similar?limit=20`));
+      const similar=object(await read(cosine,`tracks/${encodeURIComponent(match.id)}/similar?limit=${uniqueSeeds.length===1?50:20}`));
       add(seed,object(similar.data).similar_tracks);matchedSeeds.add(seed.id);
     } catch(e) {if(e instanceof CosineError&&e.status===404)continue;throw e;}
   }
@@ -73,7 +94,7 @@ export async function cosineDiscovery(seeds: Track[], cosine: ProviderRead, spot
   const shared=sorted.filter(t=>t.seedIds.size>1).slice(0,20),used=new Set(shared.map(t=>t.id));
   const groups=new Map<string,Candidate[]>();
   for(const candidate of sorted)if(!used.has(candidate.id))groups.set(candidate.seed,[...(groups.get(candidate.seed)||[]),candidate]);
-  const ranked=[...shared,...Array.from({length:20},(_,i)=>[...groups.values()].flatMap(g=>g[i]?[g[i]]:[])).flat()].slice(0,60);
+  const ranked=[...shared,...Array.from({length:uniqueSeeds.length===1?50:20},(_,i)=>[...groups.values()].flatMap(g=>g[i]?[g[i]]:[])).flat()].slice(0,60);
   for(const candidate of ranked) {
     progress('Matching similar tracks to Spotify');
     const quote=(v:string)=>v.replace(/["\\]/g,' ');
@@ -81,10 +102,10 @@ export async function cosineDiscovery(seeds: Track[], cosine: ProviderRead, spot
     const response=object(await read(spotify,`search?${params}`));lookedUp++;
     if(!Array.isArray(object(response.tracks).items))throw new CosineError('Spotify returned an unreadable search response. Try again.');
     const matches=(object(response.tracks).items as unknown[]).map(raw=>normalizeTrack(raw,'Audio similarity')).filter((t):t is Track=>!!t&&sameRecording(t,candidate));
-    const recordings=new Set(matches.flatMap(t=>t.isrc?[t.isrc]:[]));
-    if(!matches.length || recordings.size>1){unmatchedResults++;continue;}
+    const match=chooseSpotifyRecording(matches);
+    if(!match){unmatchedResults++;continue;}
     const seedLabel=candidate.seedIds.size>1?`${candidate.seedIds.size} source songs`:candidate.seed;
-    items.push({...matches[0],reason:`Sounds similar to ${seedLabel} · cosine.club`,similaritySource:'cosine.club',similarityTrackId:candidate.id,similarityScore:candidate.score,similaritySeedCount:candidate.seedIds.size});
+    items.push({...match,reason:`Sounds similar to ${seedLabel} · cosine.club`,similaritySource:'cosine.club',similarityTrackId:candidate.id,similarityScore:candidate.score,similaritySeedCount:candidate.seedIds.size});
   }
   const warnings=[`Audio similarity from cosine.club. Matched ${matchedSeeds.size} of ${uniqueSeeds.length} source songs; ${items.length} of ${lookedUp} candidates matched to playable Spotify versions. Results combine individual song matches, not a whole-playlist sound profile.`];
   const missing=uniqueSeeds.length-matchedSeeds.size;

@@ -84,7 +84,9 @@ export async function generateDiscovery(selection: SourceSelection, api: Spotify
   if(selection.relatedMethod==='cosine') {
     if(!audioSimilar)throw new DiscoveryError('cosine.club audio similarity is not configured.',503);
     const result=await audioSimilar(original);check();
-    return {items:diversify(result.items.filter(t=>!t.isrc||!seedRecordings.has(t.isrc)),excluded),method:'cosine',warnings:[...warnings,...result.warnings],sources,snapshots,seedCount:original.length};
+    const items=diversify(result.items.filter(t=>!t.isrc||!seedRecordings.has(t.isrc)),excluded);
+    const removed=result.items.length-items.length;
+    return {items,method:'cosine',warnings:[...warnings,...result.warnings,...(removed?[`${removed} matches were excluded as source songs, previously reviewed tracks, duplicate recordings, or repeated artists. ${items.length} tracks remain in this queue.`]:[])],sources,snapshots,seedCount:original.length};
   }
   let method: DiscoveryResult['method'] = 'artists'; const candidates: Track[] = [];
   progress('Finding related tracks');
