@@ -2,7 +2,7 @@
 
 ### Find the tracks that make your next set.
 
-[Open Crate Digger](https://crate-digger-nine-pink.vercel.app)
+[Open Crate Digger](https://crate-tinder.vercel.app)
 
 Turn the playlists you already love into a new digging session. Listen, swipe, and send your discoveries straight to Spotify—without losing the flow.
 
