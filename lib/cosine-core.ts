@@ -109,7 +109,7 @@ export async function cosineDiscovery(seeds: Track[], cosine: ProviderRead, spot
   }
   const warnings=[`Audio similarity from cosine.club. Matched ${matchedSeeds.size} of ${uniqueSeeds.length} source songs; ${items.length} of ${lookedUp} candidates matched to playable Spotify versions. Results combine individual song matches, not a whole-playlist sound profile.`];
   const missing=uniqueSeeds.length-matchedSeeds.size;
-  if(missing)warnings.push(`${missing} source songs could not be matched confidently in cosine.club. Try individual tracks with exact remix titles.`);
+  if(missing){const missingSeeds=uniqueSeeds.filter(seed=>!matchedSeeds.has(seed.id));const labels=missingSeeds.slice(0,5).map(seed=>`${seed.title} — ${seed.artist}`).join('; ');warnings.push(`Not matched in cosine.club: ${labels}${missingSeeds.length>5?`; and ${missingSeeds.length-5} more`:''}. Catalog coverage and recording names vary. Try another seed or check the track version.`)}
   if(unmatchedResults)warnings.push(`${unmatchedResults} candidates were unavailable or could not be matched to the same version on Spotify and were omitted.`);
   if(candidates.size>ranked.length)warnings.push(`Showing a first digging queue from ${ranked.length} of ${candidates.size} similar-track candidates. Narrow your sources to explore a particular sound.`);
   if(!items.length)warnings.push('No playable matches found. Try different seeds; artist-only results have not been substituted.');

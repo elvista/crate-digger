@@ -91,3 +91,8 @@ test('single-song discovery expands a full 20-neighbor bulk result through the d
  });
  assert.equal(result.items.length,50);assert.equal(new Set(result.items.map(t=>t.id)).size,50);assert.deepEqual(calls,['search/bulk','tracks/1/similar?limit=50']);
 });
+test('missing catalog coverage names the unmatched seed instead of substituting another song by its artist',async()=>{
+ const bon=normalizeTrack(raw(1,'The Wolves (Act I and II)','Bon Iver'),'Seed')!;let spotifyRequests=0;
+ const result=await cosineDiscovery([bon],async path=>path==='search/bulk'?{data:{results:[],unmatched:['Bon Iver - The Wolves (Act I and II)']}}:{data:[cosineTrack(2,'Flume','Bon Iver')]},async()=>{spotifyRequests++;return{}});
+ assert.equal(result.items.length,0);assert.equal(spotifyRequests,0);assert.match(result.warnings.join(' '),/Not matched in cosine.club: The Wolves \(Act I and II\) — Bon Iver/);
+});
