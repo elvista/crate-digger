@@ -10,7 +10,7 @@ export type SavedPlaylistMapping={sourceId:string;sourceName:string;destination:
 export type DestinationResolution={status:'ready';source:SourcePlaylist;destination:PlaylistDestination;mapped:boolean}|{status:'choose';source:SourcePlaylist;reason:'ambiguous'|'intelligent'|'removed';suggestedName:string};
 export function validateSourcePlaylist(value:unknown):SourcePlaylist{
  const p=value as Partial<SourcePlaylist>|null;
- if(!p||typeof p.id!=='string'||! /^[A-Za-z0-9]{22}$/.test(p.id)||typeof p.name!=='string'||!p.name.trim()||p.name.length>299||p.name.includes('\0'))throw new Error('Choose a source playlist before downloading.');
+ if(!p||typeof p.id!=='string'||! /^(?:[A-Za-z0-9]{22}|rekordbox:[0-9]+)$/.test(p.id)||typeof p.name!=='string'||!p.name.trim()||p.name.length>299||p.name.includes('\0'))throw new Error('Choose a source playlist before downloading.');
  return {id:p.id,name:p.name.trim()};
 }
 export function resolvePlaylistDestination(source:SourcePlaylist,playlists:RekordboxPlaylist[],saved:SavedPlaylistMapping|null):DestinationResolution{
@@ -24,6 +24,7 @@ export function resolvePlaylistDestination(source:SourcePlaylist,playlists:Rekor
   // Never bind this intent to a same-name playlist without an explicit ID.
   return {status:'ready',source,destination:saved.destination,mapped:true};
  }
+ if(source.id.startsWith('rekordbox:')){const p=playlists.find(p=>p.id===source.id.slice(10)&&p.attribute===0);if(p)return {status:'ready',source,destination:{mode:'existing',id:p.id,name:p.name,path:p.path},mapped:false}}
  const same=playlists.filter(p=>p.name.normalize('NFC').trim()===source.name.normalize('NFC'));
  const ordinary=same.filter(p=>p.attribute===0);
  if(ordinary.length===1){const p=ordinary[0];return {status:'ready',source,destination:{mode:'existing',id:p.id,name:p.name,path:p.path},mapped:false}}

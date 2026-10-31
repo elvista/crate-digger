@@ -1,10 +1,10 @@
-.panel{margin:24px 0;padding:20px;border:1px solid var(--rule);border-radius:8px;background:var(--surface,#141210);min-width:0}
-.panel h2{font-size:18px;margin:0 0 20px;font-weight:600}
+.panel{margin:0;padding:28px 0;border:0;border-top:1px solid var(--rule);border-radius:0;background:transparent;min-width:0}
+.panel h2{font-size:22px;margin:0 0 20px;font-weight:600}
 .panel h3{font-size:14px;margin:0;font-weight:600}
 .panel label{display:block;font-size:12px;margin:12px 0 8px;color:var(--paper)}
 .panel p{font-size:12px;line-height:1.7;color:var(--secondary);margin:10px 0}
-.panel input{width:100%;min-width:0;padding:12px;border:1px solid var(--rule);background:var(--ground);color:var(--paper);border-radius:4px;font:inherit;font-size:13px;min-height:44px}
-.panel button{min-height:44px;padding:10px 12px;display:inline-flex;justify-content:center;align-items:center;gap:8px;border:1px solid var(--rule);background:transparent;color:var(--paper);border-radius:6px;font:inherit;font-size:12px;cursor:pointer}
+.panel input{width:100%;min-width:0;padding:12px;border:1px solid var(--rule);background:var(--ground);color:var(--paper);border-radius:6px;font:inherit;font-size:13px;min-height:44px}
+.panel button{min-height:44px;padding:10px 12px;display:inline-flex;justify-content:center;align-items:center;gap:8px;border:1px solid var(--rule);background:transparent;color:var(--paper);border-radius:999px;font:inherit;font-size:12px;cursor:pointer}
 .panel button:disabled{opacity:.45;cursor:not-allowed}
 .panel :is(button,input,summary):focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .folder{display:flex;gap:8px}.folder button{flex-shrink:0}
@@ -17,6 +17,6 @@
 .connection{border-top:1px solid var(--rule);padding-top:16px;margin-top:20px}
 .connectionHeading{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .panel .path{overflow-wrap:anywhere;font-size:11px}.panel .error{color:#ffb58c}
-@media(max-width:600px){.panel{padding:16px}.folder{flex-wrap:wrap}.folder button{width:100%}.connectionHeading{flex-wrap:wrap}}
+@media(max-width:600px){.panel{padding:24px 0}.folder{flex-wrap:wrap}.folder button{width:100%}.connectionHeading{flex-wrap:wrap}}
 
 .panel .toggle{display:flex;align-items:center;gap:10px;min-height:44px;font-size:13px;margin:12px 0}.panel .toggle input{width:16px;min-height:16px;height:16px;accent-color:var(--accent);flex-shrink:0}

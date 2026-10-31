@@ -19,9 +19,9 @@ export async function importSavedTracks(manifest,job,save,{cancelled,wait,backof
   for(const t of job.tracks)if(t.state==='saved'&&t.importState!=='imported')t.importState='importing';
   await save();
   try{
-   for(const track of job.tracks)if(track.state==='saved'){try{await verifySavedTrack(job,track)}catch{/* Python reports individual file failures without dropping valid tracks. */}}
+   for(const track of job.tracks)if(track.state==='saved'&&!job.membershipOnly){try{await verifySavedTrack(job,track)}catch{/* Python reports individual file failures without dropping valid tracks. */}}
    const result=await bridge(manifest);
-   for(const item of result.tracks){for(const t of job.tracks.filter(t=>t.videoId===item.videoId)){t.importState=item.state;t.importError=item.error||'';if(item.contentId)t.contentId=item.contentId}}
+   for(const item of result.tracks){for(const t of job.tracks.filter(t=>item.operationId?t.operationId===item.operationId:t.videoId===item.videoId)){t.importState=item.state;t.importError=item.error||'';if(item.contentId)t.contentId=item.contentId}}
    job.imported=job.tracks.filter(t=>t.importState==='imported').length;
    job.rekordbox.destination=result.destination;job.rekordbox.backupId=result.backupId;job.rekordbox.journalPath=result.journalPath;
    job.rekordbox.status=result.verified?'imported':'failed';

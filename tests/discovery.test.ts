@@ -7,6 +7,7 @@ import { parseSpotifyLink, parseSelection, normalizePlaylist, generateDiscovery,
 import { normalizeTrack } from '../lib/spotify-data.ts';
 import { seal, unseal } from '../lib/spotify-session.ts';
 import { createDiscoveryStore } from '../lib/discovery-store.ts';
+import {matchingRevision} from '../lib/matching-revision.ts';
 import { matchedMetadata, validateMetadataImport, featuresToMetadata } from '../lib/dj-metadata.ts';
 const id=(n:number)=>String(n).padStart(22,'0');
 const raw=(n:number,artist=n)=>({id:id(n),name:`Track ${n}`,duration_ms:240000,type:'track',artists:[{id:id(artist),name:`Artist ${artist}`}],album:{id:id(900+n),name:`Album ${n}`}});
@@ -39,4 +40,8 @@ test('resumed matching updates only the owner session and preserves its paging i
  assert.equal(await store.replace('owner',session.id,{...initial,items:Array.from({length:50},(_,i)=>track(i+1)),generation:{status:'complete',target:50,resolved:50}}),true);
  const restored=await store.page('owner',session.id,null);assert.equal(restored?.total,50);assert.equal(restored?.generation?.status,'complete');assert.equal(restored?.id,session.id);assert.equal('ownerId' in restored!,false);
  }finally{await rm(root,{recursive:true,force:true})}
+});
+test('matching revisions detect a corrected recording even when queue size stays the same',()=>{
+ const state={items:[track(1)],status:'complete',warnings:[],target:50} as any;
+ const before=matchingRevision(state);state.items=[track(2)];assert.notEqual(matchingRevision(state),before);
 });

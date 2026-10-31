@@ -3,6 +3,7 @@ import {join} from 'node:path';
 import {createTextStore} from './text-store';
 import {seal,unseal,appConfig} from './spotify-session';
 import type {MatchingState} from './cosine-core';
+export {matchingRevision} from './matching-revision';
 export function matchingJobStore(){
  const storage=createTextStore(join(process.cwd(),'.data/matching'),'matching'),secret=appConfig().secret;
  const valid=(id:string)=>/^[a-f0-9-]{36}$/.test(id);

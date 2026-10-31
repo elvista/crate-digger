@@ -1,5 +1,5 @@
 import {recordingMappings} from '@/lib/recording-mappings';
-import {matchingJobStore} from '@/lib/matching-job';
+import {matchingJobStore,matchingRevision} from '@/lib/matching-job';
 import {advanceMatching,matchingWarnings} from '@/lib/cosine-core';
 import {createCosineReader} from '@/lib/cosine';
 import {sessionStore} from '@/lib/session-store';
@@ -17,7 +17,7 @@ export async function POST(request:Request,context:{params:Promise<{id:string}>}
   const state=await jobs.read(user.userId,id);if(!state)throw new SpotifyError('No resumable matching job found.',404);
   await advanceMatching(state,createCosineReader(request.signal),spotifyRequest,request.signal,undefined,recordingMappings(user.userId));
   await jobs.write(user.userId,id,state);
-  const generation={status:state.status,target:state.target,resolved:state.items.length,retryAt:state.retryAt};
+  const generation={status:state.status,target:state.target,resolved:state.items.length,retryAt:state.retryAt,revision:matchingRevision(state)};
   await store.replace(user.userId,id,{...page,items:state.items,warnings:matchingWarnings(state),generation});
   // Full snapshots are small (at most 50); the client preserves its active card.
   return Response.json({...page,items:state.items,total:state.items.length,nextCursor:null,warnings:matchingWarnings(state),generation},{headers:noStore});

@@ -7,7 +7,7 @@ export type RekordboxStatus={
   blockingProcesses:string[]|null; processCheckError:string|null;
   installedLibraryWritesEnabled:boolean; stage:'connected';
 };
-export async function rekordboxRequest<T>(action:'health'|'playlists',data:Record<string,unknown>={}):Promise<T>{
+export async function rekordboxRequest<T>(action:'health'|'playlists'|'source-tracks'|'content-file'|'match-content',data:Record<string,unknown>={}):Promise<T>{
  if(process.env.VERCEL)throw new Error('Rekordbox requires the local app on your Mac.');
  return new Promise((resolve,reject)=>{
   const child=execFile(join(process.cwd(),'.data/rekordbox/venv/bin/python'),[join(process.cwd(),'scripts/rekordbox/bridge.py')],

@@ -45,9 +45,10 @@ async function originalReceiptMatches(path,prior,job){
 }
 export async function verifiedReceipt(path,prior,job){
  const whole=await hash(path),audio=await audioHash(path);
+ if(prior.recordingId&&prior.recordingId!==`audio:${audio}`)throw new Error('The existing MP3 audio changed and no longer matches its recording identity. It has been left untouched.');
  if(whole!==prior.sha256){
   const matches=prior.audioSha256?audio===prior.audioSha256:await originalReceiptMatches(path,prior,job);
   if(!matches)throw new Error('The existing MP3 audio changed or cannot be verified. It has been left untouched.');
  }
- return {...prior,version:2,sha256:whole,audioSha256:audio};
+ return {...prior,version:2,sha256:whole,audioSha256:audio,recordingId:`audio:${audio}`};
 }

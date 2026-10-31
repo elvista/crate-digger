@@ -1,5 +1,6 @@
 import {readFile} from 'node:fs/promises';
 import {downloadTrack,saveJson,checkDestination} from './download-files.mjs';
+import {recordingInventory} from './download-index.mjs';
 import {importSavedTracks} from './rekordbox-import.mjs';
 import {cancellation,markCancelled,pendingImport} from './download-runtime.mjs';
 const manifest=process.argv[2];
@@ -24,28 +25,34 @@ async function destinationReady(){
 }
 try{
  if(job.version!==2||job.delivery!=='folder')throw new Error('This job predates direct MP3 downloads. Start a new download.');
+ if(job.membershipOnly)job.runMode='import'; // Membership jobs can never enter the audio download pipeline.
  job.workerPid=process.pid;job.message='';
  heartbeat=setInterval(()=>{void save().catch(()=>{})},15000);
  await save();
  if(job.runMode!=='import'&&!process.argv.includes('--import-only')){
   job.status='running';job.failures=[];job.completed=job.tracks.filter(t=>t.state==='saved').length;await save();
+  let inventory=null;
   for(let index=0;index<job.tracks.length;index++){
    const track=job.tracks[index];
    if(await cancelled())break;
    if(track.state==='failed')continue; // Explicit Resume enables retries of known failures.
    if(!await destinationReady())break;
+   if(!inventory)inventory=await recordingInventory(job);
    job.status='running';job.current=`${track.artist} — ${track.title}`;
    const wasSaved=track.state==='saved';
    try{
-    const result=await downloadTrack(job,track,async state=>{track.state=state;await save()});
+    const result=await downloadTrack(job,track,async state=>{track.state=state;await save()},inventory);
     Object.assign(track,{state:'saved',filename:result.filename,path:result.path,reused:result.reused,audio:result.audio,error:''});
+    try{const receipt=JSON.parse(await readFile(`${job.outputFolder}/.crate-digger/recordings/${track.videoId}.json`,'utf8'));receipt.spotifyIds=[...new Set([...(Array.isArray(receipt.spotifyIds)?receipt.spotifyIds:[]),track.spotifyTrackId].filter(Boolean))];inventory.receipts=inventory.receipts.filter(r=>r.videoId!==receipt.videoId);inventory.receipts.push(receipt);delete inventory.scans[receipt.filename]}catch{}
    }catch(e){
+    if(e.code==='acquisition_busy'){track.state=wasSaved?'saved':'queued';job.message=e.message;await save();if(await wait(2000)){index--;continue}break}
     try{await checkDestination(job)}catch(drive){e=drive}
     if(['destination_unavailable','destination_changed'].includes(e.code)){track.state=wasSaved?'saved':'queued';if(await destinationReady()){index--;await save();continue}}
     else{track.state='failed';track.error=e instanceof Error?e.message:'Download failed.'}
    }
    job.completed=job.tracks.filter(t=>t.state==='saved').length;await save();
   }
+  if(inventory)try{await saveJson(`${job.outputFolder}/.crate-digger/index.json`,inventory)}catch{}
   job.failures=job.tracks.filter(t=>t.state==='failed').map(t=>`${t.artist} — ${t.title}: ${t.error}`);
  }
  if(await cancelled()&&job.autoImport&&await pendingImport(manifest)){job.rekordbox??={};await importSavedTracks(manifest,job,save,{cancelled,wait,backoff,destinationReady})}

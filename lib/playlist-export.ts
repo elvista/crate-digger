@@ -67,5 +67,9 @@ export async function exportPlaylist(input:ExportInput,userId:string,api:API,loa
  const metadata=normalizePlaylist(playlist);
  const count=itemCount+pending.length;
  const result={playlistId,url:`https://open.spotify.com/playlist/${playlistId}`,added:pending.length,alreadyPresent:input.uris.length-pending.length,count,...(metadata?{playlist:{...metadata,count}}:{})};
- await save({signature,phase:'done',playlistId,result});return result;
+ // Spotify has already confirmed the append. A receipt-storage outage must
+ // not turn that confirmed success into a failed save in the UI. Retrying the
+ // same operation safely rereads Spotify membership before another append.
+ try{await save({signature,phase:'done',playlistId,result})}catch{}
+ return result;
 }

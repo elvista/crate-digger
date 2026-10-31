@@ -4,9 +4,10 @@ import { seal, unseal } from './spotify-session.ts';
 import type { DiggingSession, DiscoveryResult, SessionPage } from './discovery-types.ts';
 export function createDiscoveryStore(root: string, secret: string) {
   const storage=createTextStore(root,'discovery');
-  async function create(ownerId: string, result: DiscoveryResult) {
+  async function create(ownerId: string, result: DiscoveryResult, id = randomUUID()) {
+    if(!/^[a-f0-9-]{36}$/.test(id))throw new Error('Invalid session ID');
     try{await storage.prune?.(Date.now()-12*3600000)}catch{}
-    const session: DiggingSession = { ...result, id: randomUUID(), ownerId, createdAt: Date.now(), expiresAt: Date.now() + 12 * 3600000 };
+    const session: DiggingSession = { ...result, id, ownerId, createdAt: Date.now(), expiresAt: Date.now() + 12 * 3600000 };
     await storage.write(`${session.id}.json`,seal(session,secret));return session;
   }
   async function page(ownerId: string, id: string, cursor: string | null): Promise<SessionPage | null> {

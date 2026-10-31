@@ -1,14 +1,14 @@
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir} from 'node:fs/promises';
-import {requireOrigin,requireUser,noStore} from '@/lib/route-auth';
+import {requireOrigin,requireLocalUser,noStore} from '@/lib/route-auth';
 import {defaultDownloadFolder,localSettingsStore,validateDownloadFolder} from '@/lib/local-download-settings';
 const run=promisify(execFile),settings=localSettingsStore();
 export const runtime='nodejs';
 export async function POST(request:Request){
  if(process.env.VERCEL||!/^(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/.test(request.headers.get('host')||''))return Response.json({local:false},{headers:noStore});
  let owner:string;
- try{requireOrigin(request);owner=(await requireUser()).userId;}
+ try{requireOrigin(request);owner=(await requireLocalUser()).userId;}
  catch{return Response.json({error:'Sign in from the local app to manage local settings.'},{status:403,headers:noStore});}
  try{
   const text=await request.text();if(text.length>12000)throw new Error('Settings request is too large.');

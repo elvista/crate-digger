@@ -15,13 +15,13 @@ export function parseSpotifyLink(value: string): { type: 'playlist' | 'track'; i
 }
 export function parseSelection(value: unknown): SourceSelection {
   const data = object(value);
-  const ids = (value: unknown, max: number) => { if (!Array.isArray(value) || value.length > max || !value.every(spotifyId)) throw new DiscoveryError(`Select no more than ${max} valid sources.`); return [...new Set(value)] as string[]; };
-  const playlistIds = ids(data.playlistIds, 10), trackIds = ids(data.trackIds, 25);
+  const ids = (value: unknown, max: number, local=false) => { if (!Array.isArray(value) || value.length > max || !value.every(id=>spotifyId(id)||(local&&typeof id==='string'&&/^rekordbox:\d+$/.test(id)))) throw new DiscoveryError(`Select no more than ${max} valid sources.`); return [...new Set(value)] as string[]; };
+  const playlistIds = ids(data.playlistIds, 10,true), trackIds = ids(data.trackIds, 25);
   if (!playlistIds.length && !trackIds.length) throw new DiscoveryError('Choose a playlist or a seed track first.');
   if (data.mode !== 'playlist' && data.mode !== 'related') throw new DiscoveryError('Choose a discovery mode.');
   if (!['', 'Deep house', 'Melodic techno', 'Tech house'].includes(String(data.genre ?? ''))) throw new DiscoveryError('Choose a supported genre filter.');
   if (data.relatedMethod !== 'cosine' && data.relatedMethod !== 'auto' && data.relatedMethod !== 'artists') throw new DiscoveryError('Choose a recommendation method.');
-  if (!Array.isArray(data.reviewedIds) || data.reviewedIds.length > 5000 || !data.reviewedIds.every(id => typeof id === 'string' && /^spotify:[A-Za-z0-9]{22}$/.test(id))) throw new DiscoveryError('Invalid reviewed-track list.');
+  if (!Array.isArray(data.reviewedIds) || data.reviewedIds.length > 5000 || !data.reviewedIds.every(id => typeof id === 'string' && /^(?:spotify:[A-Za-z0-9]{22}|rekordbox:\d+)$/.test(id))) throw new DiscoveryError('Invalid reviewed-track list.');
   return { playlistIds, trackIds, mode: data.mode, genre: String(data.genre || ''), relatedMethod: data.relatedMethod, reviewedIds: data.reviewedIds };
 }
 export function normalizePlaylist(value: unknown): Playlist | null {
@@ -58,7 +58,9 @@ export async function generateDiscovery(selection: SourceSelection, api: Spotify
   const snapshots:Record<string,string>={};
   progress('Reading selected sources');
   for (const id of selection.playlistIds) {
-    const playlist = normalizePlaylist(await read(`playlists/${id}`));
+    if(id.startsWith('rekordbox:')){if(selection.mode==='related'&&selection.relatedMethod!=='cosine')throw new DiscoveryError('Use audio similarity or browse original tracks for Rekordbox sources.',400);const local=object(await read(`rekordbox/${id.slice(10)}`));groups.push(local.items as Track[]);sources.push(String(local.name));continue}
+    let rawPlaylist;try{rawPlaylist=await read(`playlists/${id}`)}catch(e){const status=(e as {status?:number}).status;if(status!==429&&status!==502&&status!==503)throw e;const saved=await playlistCache?.latest?.(id);if(!saved)throw e;groups.push(saved.tracks);sources.push(saved.tracks[0]?.reason?.replace(/^From /,'')||'Saved playlist');warnings.push('Spotify could not refresh this source. Using its previously saved tracks.');continue}
+    const playlist = normalizePlaylist(rawPlaylist);
     if (!playlist) throw new DiscoveryError('Spotify returned an unreadable playlist.', 502);
     const cached=playlist.snapshotId?await playlistCache?.get(id,playlist.snapshotId):null;
     if(cached){

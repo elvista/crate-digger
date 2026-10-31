@@ -221,3 +221,31 @@ Keep validation proportional to the changes; do not run Impeccable checks.
 6. Complete focused checks and the real Rekordbox playback acceptance.
 
 The first milestone is deliberately the compatibility proof: permanent downloading is straightforward in the existing backend, while reliable recognition by the installed Rekordbox version is the dependency that determines whether the complete workflow can ship.
+
+
+## Discover membership-only extension
+
+Discover now supports both Spotify and Rekordbox source/destination playlists.
+Folder parent IDs and paths are preserved in the nested source and destination
+trees. Right swipe saves Spotify recommendations to Spotify Crate Finds, including recommendations seeded from Rekordbox. Existing local Rekordbox recordings save to Rekordbox Crate Finds; left passes. The Rekordbox default is created or reused at the root automatically, independently of custom picker choices. Up and down open only the destinations for the displayed recording: Spotify for recommendations, Rekordbox for local recordings. A save
+advances only after the worker confirms playlist membership.
+
+This extension never downloads, copies, retags, renames or edits audio. It only
+adds an existing exact content ID to an existing ordinary playlist through the
+backed-up journaled worker, preserving all content records and parent folders.
+Spotify discoveries save exclusively to Spotify. Downloads remains the explicit audio-download/import flow into Rekordbox. Local
+playback is authenticated and bound to the library identity.
+
+Validation: an isolated-copy import/repeat check kept a single membership, an
+identical full content record and unchanged audio checksum while blocking
+add_content, metadata and audio import methods. No installed-library writes
+were made by this check. Browser verification covered nested sources, local
+playback, destination picker and no-audio-change notice.
+
+
+Default-save isolation follow-up: routing is determined by the displayed recording,
+so changing draft sources does not redirect the active queue. Spotify recommendations
+always save to Spotify; existing local tracks always save to Rekordbox. The picker,
+gestures and keyboard controls share this destination rule, with no cross-service fallback.
+An isolated library check confirmed that separate swipe jobs reuse one root
+Crate Finds and one membership while preserving the full content row and audio.

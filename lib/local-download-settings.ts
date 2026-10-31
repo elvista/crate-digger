@@ -2,7 +2,7 @@ import {homedir} from 'node:os';
 import {isAbsolute,join,resolve} from 'node:path';
 import {mkdir,open,readFile,realpath,rename,rm,stat} from 'node:fs/promises';
 import {createHash,randomUUID} from 'node:crypto';
-export type LocalDownloadSettings={version:1;downloadFolder:string;libraryPath:string|null;autoImport:boolean};
+export type LocalDownloadSettings={version:1;revision:string;downloadFolder:string;libraryPath:string|null;autoImport:boolean};
 export function defaultDownloadFolder(){return join(homedir(),'Music','Crate Digger')}
 export async function validateDownloadFolder(value:unknown){
  if(typeof value!=='string'||!value.trim()||value.includes('\0')||value.length>4096)throw new Error('Choose a valid download folder.');
@@ -31,11 +31,11 @@ export function localSettingsStore(root=join(process.cwd(),'.data','local-settin
   async read(owner:string):Promise<LocalDownloadSettings>{
    try{const d=JSON.parse(await readFile(path(owner),'utf8'));
     if(d.version!==1||typeof d.downloadFolder!=='string'||!isAbsolute(d.downloadFolder)||!(d.libraryPath===null||typeof d.libraryPath==='string'))throw new Error('Saved local settings are invalid.');
-    return {version:1,downloadFolder:d.downloadFolder,libraryPath:d.libraryPath,autoImport:d.autoImport!==false};
-   }catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;return {version:1,downloadFolder:defaultDownloadFolder(),libraryPath:null,autoImport:true};}
+    return {version:1,revision:typeof d.revision==='string'?d.revision:'legacy',downloadFolder:d.downloadFolder,libraryPath:d.libraryPath,autoImport:d.autoImport!==false};
+   }catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;return {version:1,revision:'default',downloadFolder:defaultDownloadFolder(),libraryPath:null,autoImport:true};}
   },
   async save(owner:string,input:{downloadFolder:unknown;libraryPath:unknown;autoImport?:unknown}):Promise<LocalDownloadSettings>{
-   const settings:LocalDownloadSettings={version:1,downloadFolder:await validateDownloadFolder(input.downloadFolder),libraryPath:await validateLibraryPath(input.libraryPath),autoImport:input.autoImport!==false};
+   const settings:LocalDownloadSettings={version:1,revision:randomUUID(),downloadFolder:await validateDownloadFolder(input.downloadFolder),libraryPath:await validateLibraryPath(input.libraryPath),autoImport:input.autoImport!==false};
    await mkdir(root,{recursive:true,mode:0o700});
    const temp=resolve(root,`.${randomUUID()}.tmp`);
    try{const f=await open(temp,'wx',0o600);try{await f.writeFile(JSON.stringify(settings));await f.sync()}finally{await f.close()}

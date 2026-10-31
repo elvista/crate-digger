@@ -15,7 +15,7 @@ export default function LocalDownloadSettings(){
  async function act(action:'browse'|'default'|'save'|'reveal'){
   setBusy(true);setError('');setMessage('');try{const d=await request(action,{downloadFolder:folder,libraryPath:library.trim()||null,autoImport});if(d.cancelled)return;
    if(d.folder){setFolder(d.folder);setMessage('Folder selected. Save to use it.');}
-   if(d.settings){setSaved(d.settings);setFolder(d.settings.downloadFolder);setLibrary(d.settings.libraryPath||'');setAutoImport(d.settings.autoImport!==false);setStatus(null);setMessage('Saved on this Mac.');}
+   if(d.settings){setSaved(d.settings);setFolder(d.settings.downloadFolder);setLibrary(d.settings.libraryPath||'');setAutoImport(d.settings.autoImport!==false);setStatus(null);setMessage('Saved on this Mac.');try{localStorage.setItem('crate-local-settings-revision',d.settings.revision)}catch{}window.dispatchEvent(new Event('crate:local-settings-changed'));}
   }catch(e){setError((e as Error).message)}finally{setBusy(false)}
  }
  const dirty=!!saved&&(folder!==saved.downloadFolder||(library.trim()||null)!==saved.libraryPath||autoImport!==saved.autoImport);

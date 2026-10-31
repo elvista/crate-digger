@@ -1,3 +1,5 @@
+import {recordingInventory,resolveRecording,confirmRecording} from '../scripts/download-index.mjs';
+import {saveJson} from '../scripts/download-files.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {access,chmod,mkdir,mkdtemp,readFile,readdir,realpath,rm,stat,writeFile} from 'node:fs/promises';
@@ -17,7 +19,7 @@ test('MP3 jobs tag and publish real audio, reuse verified recordings and never o
   const fake=join(root,'download-fixture.mjs');
   await writeFile(fake,`#!/usr/bin/env node\nimport {copyFile} from 'node:fs/promises';\nconst args=process.argv.slice(2);await copyFile(${JSON.stringify(sample)},args[args.indexOf('-o')+1].replace('%(ext)s','mp3'));\n`);await chmod(fake,0o700);
   let n=0;
-  const track={videoId:'aaaaaaaaaaa',title:'Track / Original',artist:'Test Artist',album:'Test Album'};
+  const track={spotifyTrackId:'spotify:'+'a'.repeat(22),videoId:'aaaaaaaaaaa',title:'Track / Original',artist:'Test Artist',album:'Test Album'};
   async function job(tracks:unknown[]){const folder=join(root,`job-${n++}`);await mkdir(folder);const manifest=join(folder,'job.json');
    await writeFile(manifest,JSON.stringify({version:2,delivery:'folder',id:`test-${n}`,status:'queued',outputFolder:output,destinationIdentity:{device:String(info.dev),inode:String(info.ino)},tracks,completed:0,failures:[],createdAt:Date.now(),ytdlp:fake,ffmpeg,ffprobe}));
    await run(process.execPath,['scripts/download-worker.mjs',manifest]);return JSON.parse(await readFile(manifest,'utf8'));}
@@ -26,8 +28,19 @@ test('MP3 jobs tag and publish real audio, reuse verified recordings and never o
   const {stdout}=await run(ffprobe,['-v','error','-show_entries','format_tags=title,artist,album','-of','json',audio]);
   assert.deepEqual(JSON.parse(stdout).format.tags,{title:track.title,artist:track.artist,album:track.album});
   assert.equal((await readdir(output)).some(n=>n.endsWith('.zip')),false);
+  const crossUpload=await job([{...track,videoId:'zzzzzzzzzzz'}]);assert.equal(crossUpload.tracks[0].reused,true);assert.equal(crossUpload.tracks[0].path,audio);assert.equal((await readdir(output)).filter(n=>n.endsWith('.mp3')).length,1);
+  const context={outputFolder:output,destinationIdentity:{device:String(info.dev),inode:String(info.ino)},ffprobe,ffmpeg};
+  // Adopt an existing tagged file after explicit confirmation, without modifying it.
+  await mkdir(join(root,'Legacy'));const legacyFolder=await realpath(join(root,'Legacy'));const legacyInfo=await stat(legacyFolder);const local={...context,outputFolder:legacyFolder,destinationIdentity:{device:String(legacyInfo.dev),inode:String(legacyInfo.ino)}};
+  await writeFile(join(legacyFolder,'existing.mp3'),bytes);await mkdir(join(legacyFolder,'.crate-digger','recordings'),{recursive:true});
+  let inventory=await recordingInventory(local);const ambiguous=await resolveRecording(local,track,inventory);assert.equal(ambiguous.status,'needs-review');
+  const adopted=await confirmRecording(local,track,'existing.mp3',inventory);await saveJson(join(legacyFolder,'.crate-digger','recordings',adopted.videoId+'.json'),adopted);
+  inventory=await recordingInventory(local);assert.equal((await resolveRecording(local,track,inventory)).status,'available');assert.deepEqual(await readFile(join(legacyFolder,'existing.mp3')),bytes);
+  const otherVersion=await resolveRecording(local,{...track,spotifyTrackId:'spotify:'+'x'.repeat(22),videoId:adopted.videoId,title:'Track / Original (Remix)'},inventory);assert.equal(otherVersion.status,'needs-review');
+  assert.equal((await resolveRecording(local,{...track,spotifyTrackId:'spotify:'+'x'.repeat(22),videoId:undefined,title:'Track / Original (Remix)'},inventory)).status,'missing');
+  assert.match(adopted.recordingId,/^audio:[a-f0-9]{64}$/);
   const collision=join(output,'Test Artist - Collision [bbbbbbbbbbb].mp3');await writeFile(collision,'user-owned');
-  const second=await job([{...track},{...track,title:'Collision',videoId:'bbbbbbbbbbb'}]);
+  const second=await job([{...track},{...track,spotifyTrackId:'spotify:'+'b'.repeat(22),title:'Collision',videoId:'bbbbbbbbbbb'}]);
   assert.equal(second.status,'partial');assert.equal(second.tracks[0].reused,true);assert.equal(second.tracks[1].state,'failed');
   assert.deepEqual(await readFile(audio),bytes);assert.equal(await readFile(collision,'utf8'),'user-owned');
   // Rekordbox rewrites ID3 metadata without changing MPEG audio. A legacy

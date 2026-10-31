@@ -10,10 +10,16 @@ export const activeStates=['queued','running','importing','waiting','waiting-dri
 export const persist=saveJson;
 export const manifestFor=(folder,id)=>join(folder,id,'job.json');
 export async function readJson(path){return JSON.parse(await readFile(path,'utf8'))}
+export function validJob(job,id){
+ // ZIP jobs from before the versioned manifest used no version field.
+ if(!job||job.id!==id||![undefined,1,2].includes(job.version)||typeof job.status!=='string'||!Array.isArray(job.tracks)||job.tracks.length>500||!Number.isFinite(job.createdAt))return false;
+ if(job.version===2&&(!['queued','running','importing','waiting','waiting-drive','recovering','stopping','cancelled','paused','partial','failed','import-failed','needs-destination','done'].includes(job.status)||typeof job.outputFolder!=='string'||!job.destinationIdentity||typeof job.destinationIdentity.device!=='string'||typeof job.destinationIdentity.inode!=='string'))return false;
+ return job.tracks.every(t=>t&&typeof t==='object'&&(job.version===undefined||typeof t.state==='string'&&t.state.length<40)&&(t.videoId===undefined||typeof t.videoId==='string'&&/^[A-Za-z0-9_-]{11}$/.test(t.videoId)));
+}
 export async function jobsIn(folder){
  let entries;try{entries=await readdir(folder)}catch(e){if(e.code==='ENOENT')return [];throw e}
  const jobs=[];
- for(const id of entries){if(!/^[a-f0-9-]{36}$/.test(id))continue;try{const job=await readJson(manifestFor(folder,id));if(job.id===id)jobs.push(job)}catch{}}
+ for(const id of entries){if(!/^[a-f0-9-]{36}$/.test(id))continue;try{const job=await readJson(manifestFor(folder,id));if(validJob(job,id))jobs.push(job)}catch{}}
  return jobs.sort((a,b)=>b.createdAt-a.createdAt);
 }
 export async function accountLock(folder){

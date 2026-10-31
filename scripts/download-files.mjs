@@ -1,39 +1,21 @@
-import {mkdir,open,readFile,realpath,stat,lstat,link,rm,rename} from 'node:fs/promises';
+import {mkdir,open,readFile,stat,lstat,link,rm} from 'node:fs/promises';
 import {join,basename} from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {createReadStream} from 'node:fs';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
+import {recordingInventory,resolveRecording} from './download-index.mjs';
 import {verifiedReceipt,audioHash} from './recording-verification.mjs';
+import {saveJson,checkDestination,inspectMp3,syncFolder} from './download-primitives.mjs';
+export {saveJson,checkDestination,inspectMp3,DestinationError} from './download-primitives.mjs';
 const run=promisify(execFile);
-export async function saveJson(path,value){
- const temp=path+'.'+randomUUID()+'.tmp';
- try{const f=await open(temp,'wx',0o600);try{await f.writeFile(JSON.stringify(value));await f.sync()}finally{await f.close()}
-  await rename(temp,path);await syncFolder(join(path,'..'));
- }finally{await rm(temp,{force:true})}
-}
-export class DestinationError extends Error {constructor(message,code){super(message);this.code=code}}
-async function syncFolder(folder){const f=await open(folder,'r');try{await f.sync()}catch(e){if(!['EINVAL','ENOTSUP'].includes(e.code))throw e}finally{await f.close()}}
-export async function checkDestination(job){
- let folder,info;
- try{folder=await realpath(job.outputFolder);info=await stat(folder)}catch{throw new DestinationError('Download folder unavailable. Reconnect the original drive to resume.','destination_unavailable');}
- if(folder!==job.outputFolder||!info.isDirectory()||String(info.dev)!==job.destinationIdentity.device||String(info.ino)!==job.destinationIdentity.inode)throw new DestinationError('Waiting for the original download folder. Reconnect its drive; this job will not switch folders.','destination_changed');
- return folder;
-}
-export async function inspectMp3(path,ffprobe){
- let data;try{const {stdout}=await run(ffprobe,['-v','error','-show_format','-show_streams','-of','json',path],{timeout:30000,maxBuffer:1000000});data=JSON.parse(stdout)}catch{throw new Error('MP3 verification failed. The output is missing or unreadable.');}
- const stream=data.streams?.find(s=>s.codec_type==='audio'&&s.codec_name==='mp3');
- const duration=Number(data.format?.duration),size=(await stat(path)).size;
- if(!stream||!Number.isFinite(duration)||duration<=0||size<100)throw new Error('MP3 verification failed. The output contains no playable audio.');
- return {durationMs:Math.round(duration*1000),size,sampleRate:Number(stream.sample_rate),channels:stream.channels,tags:data.format.tags||{}};
-}
 async function digest(path){const h=createHash('sha256');for await(const chunk of createReadStream(path))h.update(chunk);return h.digest('hex')}
 export function recordingName(track){
  let clean=`${track.artist} - ${track.title}`.normalize('NFKC').replace(/[^\p{L}\p{N} ._()-]/gu,'_').slice(0,100).replace(/[. ]+$/,'')||'Track';
  while(Buffer.byteLength(clean,'utf8')>180)clean=Array.from(clean).slice(0,-1).join('');
  return `${clean} [${track.videoId}].mp3`;
 }
-async function recordingLock(path){
+export async function recordingLock(path){
  for(let attempt=0;attempt<2;attempt++){
   try{await mkdir(path,{mode:0o700});await saveJson(join(path,'owner.json'),{pid:process.pid,createdAt:Date.now()});return}
   catch(e){
@@ -42,7 +24,7 @@ async function recordingLock(path){
    let active=false;if(Number.isInteger(owner?.pid)){try{process.kill(owner.pid,0);active=true}catch(e){active=e.code==='EPERM'}}
    const age=Date.now()-(owner?.createdAt||(await stat(path)).mtimeMs);
    if(!active&&age>1000){await rm(path,{recursive:true,force:true});continue}
-   throw new Error('This recording is already being downloaded. Retry after it finishes.');
+   throw Object.assign(new Error('The download folder is being checked or updated. Trying again shortly.'),{code:'acquisition_busy'});
   }
  }
  throw new Error('Could not acquire the recording download lock. Retry shortly.');
@@ -68,14 +50,19 @@ async function recoverPublication(folder,privateRoot,track,ffprobe,receiptPath){
  await rm(join(privateRoot,pending.stage),{recursive:true,force:true});
  return {filename:pending.filename,path:target,reused:true,recovered:true,audio};
 }
-export async function downloadTrack(job,track,onStage=async()=>{}){
+export async function downloadTrack(job,track,onStage=async()=>{},batchInventory=null){
  const folder=await checkDestination(job),privateRoot=join(folder,'.crate-digger');
  await mkdir(join(privateRoot,'recordings'),{recursive:true,mode:0o700});
  await mkdir(join(privateRoot,'locks'),{recursive:true,mode:0o700});
- const lock=join(privateRoot,'locks',track.videoId);
+ const lock=join(privateRoot,'locks','acquisition');
  await recordingLock(lock);
  let stage;
  try{
+  if(track.videoId){const recovered=await recoverPublication(folder,privateRoot,track,job.ffprobe,join(privateRoot,'recordings',track.videoId+'.json'));if(recovered)return recovered}
+  const inventory=batchInventory||await recordingInventory(job);const existing=await resolveRecording(job,track,inventory);
+  if(existing.status==='available'){const r=existing.recording;track.videoId=r.videoId;await saveJson(join(privateRoot,'recordings',r.videoId+'.json'),{...r,spotifyIds:[...new Set([...r.spotifyIds,track.spotifyTrackId].filter(Boolean))]});return {filename:r.filename,path:join(folder,r.filename),reused:true,audio:r.audio}}
+  if(existing.status!=='missing')throw new Error(existing.message);
+  if(track.acquisition==='reuse')throw new Error('The existing recording is missing. Refresh the playlist before downloading.');
   const receiptPath=join(privateRoot,'recordings',track.videoId+'.json');
   let prior;try{prior=JSON.parse(await readFile(receiptPath,'utf8'))}catch(e){if(e.code!=='ENOENT')throw new Error('The saved recording receipt is unreadable. Choose a different folder or repair the receipt.');}
   if(prior){
@@ -105,7 +92,7 @@ export async function downloadTrack(job,track,onStage=async()=>{}){
   const sha256=await digest(tagged);
   const handle=await open(tagged,'r');try{await handle.sync()}finally{await handle.close()}
   await checkDestination(job);
-  const info=await stat(tagged),receipt={version:2,audioSha256:await audioHash(tagged),videoId:track.videoId,filename,sha256,title:track.title,artist:track.artist,album:track.album||'',audio,savedAt:Date.now()};
+  const audioSha256=await audioHash(tagged);const info=await stat(tagged),receipt={version:2,recordingId:`audio:${audioSha256}`,audioSha256,spotifyIds:track.spotifyTrackId?[track.spotifyTrackId]:[],videoId:track.videoId,filename,sha256,title:track.title,artist:track.artist,album:track.album||'',audio,savedAt:Date.now()};
   const pendingPath=join(privateRoot,'recordings',track.videoId+'.pending.json');
   await saveJson(pendingPath,{videoId:track.videoId,filename,sha256,stage:basename(stage),device:String(info.dev),inode:String(info.ino),receipt});
   // Same-filesystem hard-link publication is atomic and refuses replacement.

@@ -166,6 +166,58 @@ def file_digest(path):
         return hashlib.file_digest(f, 'sha256').hexdigest()
 
 
+def match_content(data):
+    import re
+    import unicodedata
+    norm=lambda v: re.sub(r'[^\w]+','',unicodedata.normalize('NFKC',str(v or '')).casefold())
+    path=Path(data['libraryPath']).resolve(strict=True) if data.get('libraryPath') else installed_library()[0]
+    with readonly(path) as conn:
+        rows=conn.execute('SELECT c.ID,c.Title,a.Name,c.Length FROM djmdContent c LEFT JOIN djmdArtist a ON a.ID=c.ArtistID WHERE coalesce(c.rb_local_deleted,0)=0').fetchall()
+    matches=[str(r[0]) for r in rows if norm(r[1])==norm(data.get('title')) and norm(r[2])==norm(data.get('artist')) and abs(int(r[3] or 0)*1000-int(data.get('durationMs',0)))<=5000]
+    if not matches: raise BridgeError('local_track_missing','This song is not in your Rekordbox library. Download it first in Downloads.')
+    if len(matches)!=1: raise BridgeError('local_track_ambiguous','Several local recordings match this song. Choose it from a Rekordbox source to save the exact recording.')
+    return content_file({**data,'contentId':matches[0]})
+
+
+def local_audio_path(conn, cid, primary):
+    """Resolve local copies recorded by Rekordbox without changing its records."""
+    from urllib.parse import urlparse, unquote
+    columns={r[1] for r in conn.execute('PRAGMA table_info(djmdContent)')}
+    names=[n for n in ('rb_LocalFolderPath','OrgFolderPath','FileNameL') if n in columns]
+    row=conn.execute('SELECT '+','.join(names)+' FROM djmdContent WHERE ID=?',(cid,)).fetchone() if names else []
+    values=dict(zip(names,row));filename=values.get('FileNameL')
+    for value in (primary,values.get('rb_LocalFolderPath'),values.get('OrgFolderPath')):
+        if not value: continue
+        if value.startswith('file:'): value=unquote(urlparse(value).path)
+        path=Path(value).expanduser()
+        if not path.is_absolute(): continue
+        if path.is_dir() and filename: path=path/filename
+        if path.is_file(): return str(path.resolve())
+    return None
+
+
+def content_file(data):
+    path = Path(data['libraryPath']).resolve(strict=True) if data.get('libraryPath') else installed_library()[0]
+    cid = data.get('contentId', '')
+    if not isinstance(cid,str) or not cid.isdigit(): raise BridgeError('invalid_track','Choose a local library track.')
+    with readonly(path) as conn:
+        row=conn.execute('SELECT c.ID,c.FolderPath,c.Title,a.Name,b.Name,c.Length FROM djmdContent c LEFT JOIN djmdArtist a ON a.ID=c.ArtistID LEFT JOIN djmdAlbum b ON b.ID=c.AlbumID WHERE c.ID=? AND coalesce(c.rb_local_deleted,0)=0',(cid,)).fetchone()
+        audio_path=local_audio_path(conn,cid,row[1]) if row else None
+    if not row: raise BridgeError('track_missing','This track is no longer in Rekordbox.')
+    return {'localLibraryId':inspect(path)['libraryId'],'id':str(row[0]),'path':row[1],'audioPath':audio_path,'title':row[2] or 'Untitled','artist':row[3] or 'Unknown artist','album':row[4] or '', 'durationMs':int(row[5] or 0)*1000}
+
+
+def source_tracks(data):
+    path = Path(data['libraryPath']).resolve(strict=True) if data.get('libraryPath') else installed_library()[0]
+    pid = data.get('playlistId', '')
+    if not isinstance(pid, str) or not pid.isdigit():
+        raise BridgeError('invalid_playlist', 'Choose a Rekordbox playlist.')
+    with readonly(path) as conn:
+        rows = conn.execute("SELECT c.ID,c.Title,a.Name,b.Name,c.Length FROM djmdSongPlaylist m JOIN djmdContent c ON c.ID=m.ContentID LEFT JOIN djmdArtist a ON a.ID=c.ArtistID LEFT JOIN djmdAlbum b ON b.ID=c.AlbumID WHERE m.PlaylistID=? AND coalesce(m.rb_local_deleted,0)=0 AND coalesce(c.rb_local_deleted,0)=0 ORDER BY m.TrackNo LIMIT 500", (pid,)).fetchall()
+    library_id=inspect(path)['libraryId']
+    return {'items': [{'localLibraryId':library_id,'id':'rekordbox:'+str(r[0]),'title':r[1] or 'Untitled','artist':r[2] or 'Unknown artist','album':r[3] or '', 'durationMs':int(r[4] or 0)*1000,'genre':'Rekordbox','artworkUrl':None,'sourceUrl':'/api/rekordbox/audio/'+str(r[0])+'?library='+library_id,'explicit':False} for r in rows]}
+
+
 def snapshot(path=None, purpose=None):
     require_closed()
     if path is None: path, source = installed_library()
@@ -494,6 +546,9 @@ def main():
         action = request.get('action')
         if action == 'health': result = health(request)
         elif action == 'playlists': result = library_playlists(request)
+        elif action == 'source-tracks': result = source_tracks(request)
+        elif action == 'content-file': result = content_file(request)
+        elif action == 'match-content': result = match_content(request)
         elif action == 'import-job':
             from imports import import_download_job
             result = import_download_job(request)

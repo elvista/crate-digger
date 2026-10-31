@@ -1,0 +1,11 @@
+.tree{display:flex;flex-direction:column;min-width:0;gap:3px}
+.tree details{min-width:0}
+.tree summary{padding:10px 8px;min-height:44px;align-content:center;font:500 12px 'DM Sans',sans-serif;color:var(--paper,#eee);cursor:pointer;overflow-wrap:anywhere}
+.tree button{display:flex!important;align-items:center;width:100%;min-height:48px!important;gap:8px;padding:9px 10px!important;border:0!important;border-radius:5px;background:transparent!important;color:var(--paper,#eee);font-family:inherit;text-align:left;cursor:pointer}
+.tree button:hover:not(:disabled){background:#242424!important}
+.tree button[aria-pressed=true]{background:#292929!important;color:var(--accent,#ff6d27)}
+.tree button:disabled{opacity:.45;cursor:default}
+.tree button span{display:flex;flex-direction:column;gap:4px;min-width:0}
+.tree strong{font-size:12px;font-weight:550;white-space:normal!important;overflow-wrap:anywhere}
+.tree small{font-size:11px;color:var(--secondary,#b1a89e)}
+.tree :is(button,summary):focus-visible{outline:2px solid var(--accent,#ff6d27);outline-offset:2px}

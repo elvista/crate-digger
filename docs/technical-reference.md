@@ -119,3 +119,42 @@ Playlist source caches store a complete normalized source list under the account
 A private account-scoped read cache shares library list pages across source and destination pickers for 30 seconds and reuses search/track responses for 24 hours (empty searches: 30 minutes). Full track metadata from searches and playlist item reads prewarms direct track lookups. Incomplete album-track objects are not reused as full track records. Playlist writes invalidate the library cache before and after the attempt, including ambiguous failures. Playlist export explicitly bypasses read caches for fresh ownership, discovery, and duplicate checks; playback commands are never cached.
 
 Successful Crate Finds saves remember its playlist ID. Later saves validate its current name and owner directly, avoiding a repeat scan of every library page. Deleted, renamed, or unowned IDs trigger normal fresh discovery. Membership reads and write receipts still protect against duplicate saves and preserve confirmed counts.
+
+
+### Sources, swipes and Spotify cooldowns
+
+Discover supports Spotify and local Rekordbox playlists. Rekordbox folders retain
+parent IDs and full paths in both source and destination trees. Local source
+songs play through authenticated range requests by content/library ID; filesystem
+paths are never supplied by the browser. Spotify tracks keep Spotify playback.
+Up and down open destinations for the playing recording: Spotify for recommended Spotify tracks, Rekordbox for existing local tracks; left passes.
+Right saves recommended Spotify recordings exclusively to Spotify Crate Finds, even when seeded from Rekordbox. Existing local Rekordbox recordings save exclusively to Rekordbox Crate Finds. Routing follows the displayed recording, so draft source changes cannot redirect saves. The playlist picker uses the same service without a service toggle. Rekordbox creates or reuses one ordinary root Crate Finds playlist automatically; it does not require a picker or reuse a custom destination as its default. Saves advance only after confirmed success.
+
+Rekordbox Discover saves are membership-only jobs. They reuse an exact existing
+content ID and library identity, never add content, write tags, rename, copy or
+download audio. Spotify discoveries can only be added to Rekordbox when a unique
+existing local title/artist/duration match is found; otherwise use Downloads
+first. Local tracks saved to Spotify require an exact catalog match. Queued
+membership writes use the existing backed-up, journaled, process-guarded import
+worker and retain playlist parentage. Closing the picker does not cancel a job.
+
+Downloads uses Spotify playlists and converts reviewed YouTube matches into
+local MP3s for Rekordbox. Matching uses loaded title/artist/duration metadata
+without another Spotify lookup. Saved browser song batches and account-scoped
+server list snapshots remain usable during cooldowns; refresh is explicit.
+Discover's Spotify source reader also falls back to saved complete playlist
+snapshots when Spotify returns a rate limit or temporary provider failure.
+Only previously fetched data is available offline. New recommendations and
+Spotify playlist writes can still require Spotify access.
+
+The Discover request-usage disclosure counts observed outbound Web API attempts
+by category and 429 responses in the current and previous 23 hourly buckets.
+It starts when enabled, excludes cache hits/OAuth and does not represent Spotify's
+remaining quota or usage from other apps. No Impeccable checks are run routinely.
+
+### Stability state ownership
+
+- Spotify playlist pages and song snapshots are owned by `lib/saved-spotify.ts` on the server. Browser library copies are projections maintained by `lib/playlist-counts.ts`; a complete provider refresh replaces deleted and reordered playlists. Downloads row choices remain separate browser review state in `lib/download-workspace.ts`.
+- Download preparation is owned by `lib/download-preparation.ts`; the file inventory and verified recording receipts are owned by `scripts/download-index.mjs`. `scripts/download-primitives.mjs` contains shared file operations, avoiding a circular import with `scripts/download-files.mjs`. The server prepares files outside the admission lock, checks source/settings revisions again inside it, then publishes one durable job manifest. `scripts/download-runtime.mjs` validates persisted jobs and is the owner of Stop/Resume/recovery transitions.
+- Rekordbox playlist membership requests have a stable operation ID. `lib/pending-rekordbox-save.ts` keeps a small browser ledger so Discover can observe completion after a picker or page transition. The local backend job remains authoritative; closing the page does not cancel it.
+- The active Discover and Downloads responsive layouts live in their route CSS modules. `app/globals.css` supplies shared Basement tokens, header, and legacy component base rules; route modules override those rules for their own layouts. When changing a route layout, edit its module and check the shared header rules in `globals.css`.

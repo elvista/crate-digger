@@ -198,9 +198,15 @@ def import_download_job(request, copy_id=None):
         verified, failures = [], []
         for track in job['tracks']:
             if track.get('state') != 'saved': continue
-            try: verified.append((track, *verify_audio(job, track)))
+            try:
+                if job.get('membershipOnly'):
+                    with readonly(library) as conn:
+                        row=conn.execute('SELECT FolderPath FROM djmdContent WHERE ID=? AND coalesce(rb_local_deleted,0)=0',(track.get('contentId'),)).fetchone()
+                    if row is None or row[0]!=track.get('path'): raise BridgeError('track_missing','The local recording changed. Select it from Rekordbox sources again.')
+                    verified.append((track,Path(row[0]),{},{},{}))
+                else: verified.append((track, *verify_audio(job, track)))
             except Exception as e:
-                failures.append({'videoId':track.get('videoId'), 'state':'failed', 'error':str(e) if isinstance(e, BridgeError) else 'Saved MP3 unavailable or invalid. Reconnect its drive and retry.'})
+                failures.append({'operationId':track.get('operationId'),'videoId':track.get('videoId'), 'state':'failed', 'error':str(e) if isinstance(e, BridgeError) else 'Saved MP3 unavailable or invalid. Reconnect its drive and retry.'})
         if not verified:
             return {'destination':job['rekordbox']['destination'], 'tracks':failures, 'verified':False}
         check_cancelled(manifest)
@@ -228,16 +234,37 @@ def import_download_job(request, copy_id=None):
             if target.get('mode') == 'existing' and playlist is None:
                 raise BridgeError('needs_destination', 'The destination playlist was removed or is no longer ordinary.')
             if playlist is None:
-                candidates = db.query(models.DjmdPlaylist).filter_by(Name=target['name'], Attribute=0, rb_local_deleted=0).all()
+                candidates_query = db.query(models.DjmdPlaylist).filter_by(Name=target['name'], Attribute=0, rb_local_deleted=0)
+                if job.get('defaultRekordboxPlaylist'): candidates_query=candidates_query.filter_by(ParentID='root')
+                candidates = candidates_query.all()
                 if len(candidates) > 1: raise BridgeError('needs_destination', 'Several Rekordbox playlists now share this name. Choose a destination.')
                 playlist = candidates[0] if candidates else db.create_playlist(target['name'])
             db.flush()
             pid = str(playlist.ID)
             imported = []
+            local_ids_by_inode = None
             for track, audio, media, stream, values in verified:
                 existing = db.query(models.DjmdContent).filter_by(FolderPath=str(audio), rb_local_deleted=0).all()
                 if len(existing) > 1: raise BridgeError('duplicate_content', 'Multiple collection entries point to a downloaded MP3. Resolve them in Rekordbox before retrying.')
+                if not existing and not job.get('membershipOnly'):
+                    if local_ids_by_inode is None:
+                        from bridge import local_audio_path
+                        local_ids_by_inode = {}
+                        with readonly(library) as conn:
+                            for row in conn.execute('SELECT ID,FolderPath FROM djmdContent WHERE coalesce(rb_local_deleted,0)=0'):
+                                resolved=local_audio_path(conn,row[0],row[1])
+                                if not resolved: continue
+                                try:
+                                    info=Path(resolved).stat()
+                                    local_ids_by_inode.setdefault((info.st_dev,info.st_ino),[]).append(str(row[0]))
+                                except (OSError, ValueError): continue
+                    audio_info=audio.stat()
+                    local_ids=local_ids_by_inode.get((audio_info.st_dev,audio_info.st_ino),[])
+                    if len(local_ids)>1: raise BridgeError('duplicate_content','Several collection entries reference this local file. Resolve them before retrying.')
+                    if local_ids: existing=db.query(models.DjmdContent).filter_by(ID=local_ids[0],rb_local_deleted=0).all()
                 content = existing[0] if existing else None
+                if job.get('membershipOnly') and (content is None or str(content.ID)!=str(track.get('contentId'))):
+                    raise BridgeError('track_missing','The exact local recording is unavailable. No audio files were changed.')
                 if content is None:
                     content = db.add_content(audio, Title=values.get('title') or track['title'], Length=int(float(media['format']['duration'])), SampleRate=int(stream['sample_rate']), BitRate=int(int(stream.get('bit_rate', media['format'].get('bit_rate',0)))/1000))
                     content.MasterDBID, content.DeviceID = identity['libraryId'], identity['deviceId']
@@ -251,7 +278,7 @@ def import_download_job(request, copy_id=None):
                     last = db.query(func.max(models.DjmdSongPlaylist.TrackNo)).filter_by(PlaylistID=pid, rb_local_deleted=0).scalar() or 0
                     member = db.add_to_playlist(playlist, content)
                     member.TrackNo = int(last) + 1
-                imported.append({'videoId':track['videoId'],'path':str(audio),'contentId':str(content.ID),'state':'imported'})
+                imported.append({'operationId':track.get('operationId'),'videoId':track['videoId'],'path':content.FolderPath,'audioPath':str(audio),'contentId':str(content.ID),'state':'imported'})
             db.flush()
             destination = {'mode':'existing','id':pid,'name':playlist.Name,'path':playlist.Name}
             journal = {'state':'prepared','libraryId':identity['libraryId'],'libraryPath':str(library),'manifest':str(manifest),'playlistId':pid,'tracks':imported,'backupId':backup['copyId'],'backupHistory':list(dict.fromkeys(previous.get('backupHistory',[])+([previous['backupId']] if previous.get('backupId') else [])+[backup['copyId']]))}

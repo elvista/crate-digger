@@ -111,8 +111,25 @@ export function useSpotifyPlayback(track: Track | undefined, authorized: boolean
     return () => { generation.current++; };
   }, [track?.id, deviceId, authorized, startPercent, attempt, stop, retryAt,fail,visible]);
   useEffect(() => { const hide = () => { if (document.hidden) stop(); }; document.addEventListener('visibilitychange', hide); return () => document.removeEventListener('visibilitychange', hide); }, [stop]);
+  // SDK reads stay inside the browser; this adds no Spotify Web API requests.
+  useEffect(()=>{
+    if(!['playing','starting','paused'].includes(status)||!deviceId)return;
+    let disposed=false,busy=false;const began=Date.now();
+    const timer=setInterval(async()=>{
+      const p=player.current,t=wanted.current,id=generation.current;if(busy||!p||!t)return;busy=true;
+      try{const state=await p.getCurrentState();if(disposed||id!==generation.current)return;
+        if(!state||state.track_window?.current_track?.uri!==`spotify:track:${t.id.slice(8)}`){
+          if(status!=='starting'||Date.now()-began>12000)fail('Spotify is not playing this song in this tab. Press Play to reconnect the player.');
+          return;
+        }
+        setStatus(state.paused?'paused':'playing');
+        if(typeof state.position==='number'){setPosition(state.position);anchor.current={position:state.position,time:performance.now()}}
+      }catch{if(!disposed&&id===generation.current)fail('The Spotify player stopped responding. Press Play to reconnect.')}finally{busy=false}
+    },2000);
+    return()=>{disposed=true;clearInterval(timer)};
+  },[status,deviceId,fail]);
   useEffect(()=>{if(status!=='playing')return;const timer=setInterval(()=>{setPosition(Math.min(Math.max(0,duration.current-1),anchor.current.position+performance.now()-anchor.current.time))},250);return()=>clearInterval(timer)},[status]);
-  const pause=useCallback(()=>{generation.current++;const p=player.current;if(p){void p.pause().catch(()=>{});queue.current.enqueue(async()=>{await p.pause().catch(()=>{})})}setStatus('paused')},[]);
+  const pause=useCallback(()=>{const now=performance.now();if(currentStatus.current==='playing'){const estimated=Math.min(Math.max(0,duration.current-1),anchor.current.position+now-anchor.current.time);anchor.current={position:estimated,time:now};setPosition(estimated)}generation.current++;const p=player.current;if(p){void p.pause().catch(()=>{});queue.current.enqueue(async()=>{await p.pause().catch(()=>{})})}setStatus('paused')},[]);
   const seek=useCallback((value:number)=>{const p=player.current;const selected=wanted.current;const id=generation.current;if(!p||!selected||!Number.isFinite(value))return;const target=clampSeek(value,selected.durationMs);queue.current.enqueue(async()=>{if(id!==generation.current||wanted.current?.id!==selected.id)return;try{await p.seek(target);if(id===generation.current){setPosition(target);anchor.current={position:target,time:performance.now()}}}catch{if(id===generation.current)setError('Could not seek. Try again.')}})},[]);
   useEffect(()=>{if(!retryAt)return;const timer=setTimeout(()=>{setRetryAt(undefined);setError('');if(deviceId)setAttempt(v=>v+1);else setRetrySDK(v=>v+1)},Math.max(1,retryAt-Date.now()));return()=>clearTimeout(timer)},[retryAt,deviceId]);
   const enable = useCallback(() => {
@@ -124,7 +141,7 @@ export function useSpotifyPlayback(track: Track | undefined, authorized: boolean
     const activation=p.activateElement();
     if(wanted.current&&(status==='paused'||status==='needs-interaction')){
       const id=generation.current;
-      void activation.then(()=>{queue.current.enqueue(async()=>{if(id!==generation.current)return;try{await p.resume();if(id===generation.current){anchor.current={position,time:performance.now()};setError('');setStatus('playing')}}catch{if(id===generation.current)setAttempt(v=>v+1)}})}).catch(()=>{setStatus('needs-interaction');setError('Tap Enable sound to let your browser play music.')});
+      void activation.then(()=>{queue.current.enqueue(async()=>{if(id!==generation.current)return;try{setStatus('starting');await p.resume();const state=await p.getCurrentState();if(id===generation.current&&state?.track_window?.current_track?.uri===`spotify:track:${wanted.current?.id.slice(8)}`){anchor.current={position:state.position??position,time:performance.now()};setPosition(state.position??position);setError('');setStatus(state.paused?'paused':'playing')}}catch{if(id===generation.current)setAttempt(v=>v+1)}})}).catch(()=>{setStatus('needs-interaction');setError('Tap Enable sound to let your browser play music.')});
     }else void activation.then(()=>setAttempt(v=>v+1)).catch(()=>setError('Your browser blocked playback. Try again.'));
   }, [deviceId,status,position,retryAt]);
   return { status, error, recovery,retryAt,seekReady:!!track&&lastStarted.current===track.id&&!error,position, stop, pause, seek, enable };

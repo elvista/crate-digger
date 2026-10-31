@@ -1,5 +1,6 @@
-import {mkdir,readFile,writeFile,rename,rm,readdir,stat} from 'node:fs/promises';
+import {mkdir,readFile,writeFile,rename,rm,readdir,stat,open} from 'node:fs/promises';
 import {join,dirname} from 'node:path';
+import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {get,put,del,list} from '@vercel/blob';
 export class StoreLockedError extends Error{}
@@ -12,7 +13,16 @@ export function createTextStore(root:string,namespace:string):TextStore{
  if(!remote)return{remote:false,
   async read(name){try{return await readFile(key(name),'utf8')}catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return null;throw e}},
   async write(name,value){const path=key(name);await mkdir(dirname(path),{recursive:true,mode:0o700});const temp=`${path}.${randomUUID()}.tmp`;await writeFile(temp,value,{mode:0o600});await rename(temp,path)},
-  async lock(name){const path=key(`${name}.lock`);await mkdir(dirname(path),{recursive:true,mode:0o700});try{await mkdir(path,{mode:0o700})}catch(e){if((e as NodeJS.ErrnoException).code==='EEXIST')throw new StoreLockedError('A save is already running. Retry shortly.');throw e}return async()=>{await rm(path,{recursive:true,force:true})}},
+  async lock(name){const path=key(`${name}.lock`);await mkdir(dirname(path),{recursive:true,mode:0o700});
+   // An OS flock is released when its holder exits, including after a crash.
+   // Keep the lock file: removing it could let another process lock a new inode.
+   const file=await open(path,'a',0o600);await file.close();
+   const python=process.env.PYTHON_PATH||'/usr/bin/python3';
+   const child=spawn(python,[join(process.cwd(),'scripts/download-runner.py'),'--file-lock',path],{stdio:['pipe','pipe','ignore']});
+   const closed=new Promise<void>(resolve=>child.once('close',()=>resolve()));
+   try{await new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(new StoreLockedError('A save is already running. Retry shortly.')),10000);child.stdout.once('data',()=>{clearTimeout(timer);resolve()});child.once('error',()=>{clearTimeout(timer);reject(new StoreLockedError('Local storage locking is unavailable. Retry shortly.'))});child.once('close',()=>{clearTimeout(timer);reject(new StoreLockedError('A save is already running. Retry shortly.'))})})}catch(e){child.stdin.end();await closed;throw e}
+   return async()=>{child.stdin.end();await closed}
+  },
   async prune(before){try{for(const name of(await readdir(root)).filter(n=>/^[a-f0-9-]{36}\.json$/.test(n)).slice(0,200)){const path=join(root,name);if((await stat(path)).mtimeMs<before)await rm(path,{force:true})}}catch{}},
  };
  const read=async(name:string)=>{const result=await get(key(name),{access:'private',useCache:false});if(!result)return null;if(result.statusCode!==200)throw new Error('Unreadable storage response');return {text:await new Response(result.stream).text(),etag:result.blob.etag}};

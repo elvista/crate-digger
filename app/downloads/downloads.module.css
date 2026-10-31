@@ -1,12 +1,12 @@
 /* A library and a playlist workspace, with Basement's existing palette. */
-.workspace.workspace:global(.downloads-page){display:grid;grid-template-columns:280px minmax(0,1fr);align-items:start;gap:8px;max-width:1800px;width:100%;padding:8px 8px 32px;margin:0 auto}
-.workspace.workspace :global(.download-sources){position:sticky;top:8px;border:0;border-radius:8px;background:#141210;padding:16px 8px 8px;min-width:0}
-.workspace.workspace :global(.download-source-heading){display:flex;align-items:center;gap:12px;padding:0 8px;color:var(--secondary)}
+.workspace.workspace:global(.downloads-page){display:grid;grid-template-columns:320px minmax(0,1fr);align-items:start;gap:8px;max-width:1800px;width:100%;padding:0 8px 32px;margin:0 auto}
+.workspace.workspace :global(.download-sources){position:sticky;top:8px;border:0;border-radius:10px;background:#141210;padding:16px 8px 8px;min-width:0}
+.workspace.workspace :global(.download-source-heading){display:flex;align-items:center;gap:12px}
 .workspace.workspace :global(h2){font:600 18px var(--body, 'DM Sans',sans-serif);text-transform:none;margin:0;color:var(--paper)}
 .workspace.workspace :global(.playlist-filter){display:block;margin:16px 8px 8px}
 .workspace.workspace :global(.playlist-filter input){width:100%;min-width:0;border:1px solid transparent;border-radius:5px;background:#211d19;font-size:13px;padding:10px 12px;caret-color:var(--accent)}
-.workspace.workspace :global(.download-playlists){max-height:calc(100dvh - 290px);min-height:160px;display:flex;gap:2px;margin:0;border:0;scrollbar-width:thin;scrollbar-color:var(--rule) transparent}
-.workspace.workspace :global(.download-playlists .playlist-choice){padding:8px;min-height:64px;gap:12px;border:0;border-radius:5px}
+.workspace.workspace :global(.download-playlists){min-height:160px;display:flex;gap:2px;margin:0;border:0;scrollbar-width:thin;scrollbar-color:var(--rule) transparent}
+.workspace.workspace :global(.download-playlists .playlist-choice){padding:8px;gap:12px;border:0}
 .workspace.workspace :global(.download-playlists .playlist-choice[aria-pressed=true]){box-shadow:none;background:#2b231d}
 .workspace.workspace :global(.playlist-choice[aria-pressed=true] strong){color:var(--accent)}
 .workspace.workspace :global(.playlist-choice-copy){gap:4px}
@@ -15,19 +15,19 @@
 .workspace.workspace :global(.playlist-choice-check){width:18px}
 .workspace.workspace :global(.library-help){font-size:12px;color:var(--secondary);margin:12px 8px 4px;line-height:1.6}
 .workspace.workspace :global(.library-empty){font-size:13px;color:var(--secondary);padding:8px;line-height:1.6}
-.workspace.workspace :global(.download-content){background:#141210;min-width:0;min-height:calc(100dvh - 104px);border-radius:8px;overflow:clip;padding:0 24px 24px}
-.workspace.workspace :global(.download-content-top){display:flex;align-items:center;justify-content:space-between;min-height:56px;gap:12px;color:var(--secondary);font-size:13px}
+.workspace.workspace :global(.download-content){background:#141210;min-width:0;min-height:calc(100dvh - 80px);border-radius:10px;overflow:clip;padding:0 24px 24px}
+.workspace.workspace :global(.download-content-top){display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--secondary);font-size:13px}
 .workspace.workspace :global(.download-content-top>span){display:flex;align-items:center;gap:8px}
-.workspace.workspace :global(.download-playlist-header){display:flex;align-items:flex-end;gap:24px;padding:16px 0 24px}
+.workspace.workspace :global(.download-playlist-header){display:flex;align-items:flex-end}
 .workspace.workspace :global(.download-playlist-header>div){min-width:0}
 .workspace.workspace :global(.selected-playlist-cover){width:156px;height:156px;border-radius:4px;background:#30251d;box-shadow:0 8px 24px #0005}
 .workspace.workspace :global(.selected-playlist-cover>svg){width:52px;height:52px;color:var(--accent)}
-.workspace.workspace :global(h1){font:600 clamp(36px,4.8vw,72px)/1 var(--display);letter-spacing:-.025em;margin:0 0 12px;text-transform:uppercase;overflow-wrap:anywhere}
+.workspace.workspace :global(h1){font:750 clamp(32px,4.2vw,64px)/1 var(--display);letter-spacing:-.025em;margin:0 0 12px;text-transform:none;overflow-wrap:anywhere}
 .workspace.workspace :global(.download-playlist-header p){font-size:13px;line-height:1.6;color:var(--secondary);margin:4px 0 0}
 .workspace.workspace :global(.download-playlist-header .downloads-description){font-size:12px;margin:4px 0 0;max-width:65ch}
 .workspace.workspace :global(button){border-radius:5px;font-size:12px;transition:background .15s,color .15s}
 .workspace.workspace :global(.export-primary){border-radius:24px;font-weight:700;justify-content:center}
-.workspace.workspace :global(.download-batch-bar){margin:0;gap:8px;background:#141210;border-top:0;border-bottom:1px solid var(--rule);padding:16px 0;flex-wrap:wrap}
+.workspace.workspace :global(.download-batch-bar){margin:0;background:#141210;border-top:0;border-bottom:1px solid var(--rule);flex-wrap:wrap}
 .workspace.workspace :global(.download-batch-bar>.export-primary){padding:12px 20px}
 .workspace.workspace :global(.match-all){background:transparent;border-color:var(--rule);border-radius:24px}
 .workspace.workspace :global(.selection-actions){display:flex;align-items:center;gap:4px;margin-left:auto;color:var(--secondary);font-size:12px;font-variant-numeric:tabular-nums}
@@ -36,7 +36,7 @@
 .workspace.workspace :global(.download-column-head){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:8px 8px 8px 0;font-size:12px;color:var(--secondary);border-bottom:1px solid var(--rule)}
 .workspace.workspace :global(.download-column-head>span:first-child){padding-left:104px}
 .workspace.workspace :global(.download-matches ul){margin:0;padding:0;list-style:none}
-.workspace.workspace :global(.download-matches li){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 16px;align-items:center;border:0;border-radius:5px;padding:6px 8px 6px 0;min-height:88px}
+.workspace.workspace :global(.download-matches li){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 16px;align-items:center;border:0;padding:6px 8px 6px 0}
 .workspace.workspace :global(.download-matches li:hover){background:#201b17}
 .workspace.workspace :global(.download-matches li.track-selected){background:#2b231d}
 .workspace.workspace :global(.download-track-heading){grid-column:1;display:flex;gap:10px;min-width:0}
@@ -48,7 +48,7 @@
 .workspace.workspace :global(.download-track-heading p span){font-variant-numeric:tabular-nums;white-space:nowrap}
 .workspace.workspace :global(.retry-match-icon){border-radius:50%;flex-shrink:0}
 .workspace.workspace :global(.download-video){min-width:0;grid-column:2;grid-row:1}
-.workspace.workspace :global(.download-video select){width:100%;margin:0;border:1px solid var(--rule);background:#1d1915;border-radius:4px;padding:8px;font-size:12px;min-height:36px;color:var(--paper);text-overflow:ellipsis}
+.workspace.workspace :global(.download-video select){width:100%;margin:0;border:1px solid var(--rule);background:#1d1915;padding:8px;font-size:12px;min-height:36px;color:var(--paper);text-overflow:ellipsis}
 .workspace.workspace :global(.download-matches .match-review-row){margin:0;gap:8px;min-height:32px}
 .workspace.workspace :global(.download-matches .match-review-row>a){min-height:32px;font-size:11px;text-decoration:none}
 .workspace.workspace :global(.download-matches .match-review-row>a:hover){text-decoration:underline;text-underline-offset:3px}
@@ -58,7 +58,7 @@
 .workspace.workspace :global(.download-empty>svg){color:var(--accent);margin-bottom:16px}
 .workspace.workspace :global(.download-empty h2){font-size:20px;margin-bottom:8px}
 .workspace.workspace :global(.download-empty p){font-size:14px;line-height:1.6;max-width:40ch;margin:0 auto 16px}
-.workspace.workspace :global(.download-job){margin-top:24px;padding-top:24px}
+.workspace.workspace :global(.download-job){padding-top:24px}
 .workspace.workspace :global(.download-job progress){width:100%;height:6px;accent-color:var(--accent)}
 .workspace.workspace :global(.download-error){grid-column:1/-1;margin:4px 0}
 .workspace.workspace :global(.workspace-error){grid-column:1/-1}
@@ -68,23 +68,23 @@
 .workspace.workspace :global(button:disabled){cursor:not-allowed}
 @media(min-width:1500px){.workspace.workspace:global(.downloads-page){grid-template-columns:320px minmax(0,1fr)}.workspace.workspace :global(.download-content){padding-inline:32px}}
 @media(max-width:1150px){.workspace.workspace:global(.downloads-page){grid-template-columns:248px minmax(0,1fr)}.workspace.workspace :global(.download-content){padding-inline:16px}.workspace.workspace :global(.selected-playlist-cover){width:120px;height:120px}.workspace.workspace :global(.download-playlist-header){gap:16px}.workspace.workspace :global(.selection-actions){width:100%;justify-content:flex-end}.workspace.workspace :global(.selection-actions>span){margin-right:auto}.workspace.workspace :global(.download-matches li){grid-template-columns:1fr;gap:2px;padding:8px}.workspace.workspace :global(.download-video){grid-column:1;grid-row:auto;padding-left:54px}.workspace.workspace :global(.download-column-head){grid-template-columns:1fr;padding-left:0}.workspace.workspace :global(.download-column-head>span:last-child){display:none}}
-@media(max-width:900px){.workspace.workspace:global(.downloads-page){grid-template-columns:1fr;padding:8px}.workspace.workspace :global(.download-sources){position:static;display:none}.workspace.workspace :global(.download-sources.sources-open){display:block}.workspace.workspace :global(.download-playlists){max-height:320px;min-height:0}.workspace.workspace :global(.mobile-library-toggle),.workspace.workspace :global(.mobile-library-close){display:block;background:transparent}.workspace.workspace :global(.mobile-library-close){margin-left:auto}.workspace.workspace :global(.download-content){min-height:calc(100dvh - 200px)}.workspace.workspace :global(.download-playlist-header){padding-top:8px}.workspace.workspace :global(.selection-actions){width:auto;margin-left:auto}.workspace.workspace :global(.download-matches li){grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.workspace.workspace :global(.download-video){grid-column:2;grid-row:1;padding:0}.workspace.workspace :global(.download-column-head){grid-template-columns:1fr 1fr}.workspace.workspace :global(.download-column-head>span:last-child){display:block}}
-@media(max-width:650px){.workspace.workspace :global(.download-content){padding:0 12px 20px}.workspace.workspace :global(.selected-playlist-cover){width:88px;height:88px}.workspace.workspace :global(.download-playlist-header){gap:16px;padding-bottom:16px;align-items:center}.workspace.workspace :global(h1){font-size:36px}.workspace.workspace :global(.download-playlist-header .downloads-description){display:none}.workspace.workspace :global(.download-batch-bar){gap:8px;padding:12px 0}.workspace.workspace :global(.download-batch-bar>.export-primary){width:auto;flex:1;padding:12px}.workspace.workspace :global(.match-all){padding:10px 12px}.workspace.workspace :global(.selection-actions){width:100%;justify-content:flex-end}.workspace.workspace :global(.download-column-head){display:none}.workspace.workspace :global(.download-matches li){grid-template-columns:1fr;gap:4px;padding:8px 4px 8px 0}.workspace.workspace :global(.download-video){grid-column:1;grid-row:auto;padding-left:54px}.workspace.workspace :global(.download-track-heading){gap:8px}.workspace.workspace :global(.download-track-heading strong){font-size:13px}.workspace.workspace :global(.download-matches .match-review-row>a){min-height:44px}.workspace.workspace :global(.download-video select){min-height:44px}.workspace.workspace :global(.download-empty){padding-block:32px}}
+@media(max-width:900px){.workspace.workspace:global(.downloads-page){grid-template-columns:1fr;padding:8px}.workspace.workspace :global(.download-sources){position:static;display:none}.workspace.workspace :global(.download-sources.sources-open){display:block}.workspace.workspace :global(.download-playlists){min-height:0}.workspace.workspace :global(.mobile-library-toggle),.workspace.workspace :global(.mobile-library-close){display:block;background:transparent}.workspace.workspace :global(.mobile-library-close){margin-left:auto}.workspace.workspace :global(.download-content){min-height:calc(100dvh - 200px)}.workspace.workspace :global(.download-playlist-header){padding-top:8px}.workspace.workspace :global(.selection-actions){width:auto;margin-left:auto}.workspace.workspace :global(.download-matches li){grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.workspace.workspace :global(.download-video){grid-column:2;grid-row:1;padding:0}.workspace.workspace :global(.download-column-head){grid-template-columns:1fr 1fr}.workspace.workspace :global(.download-column-head>span:last-child){display:block}}
+@media(max-width:650px){.workspace.workspace :global(.download-content){padding:0 12px 20px}.workspace.workspace :global(.selected-playlist-cover){width:88px;height:88px}.workspace.workspace :global(.download-playlist-header){padding-bottom:16px;align-items:center}.workspace.workspace :global(h1){font-size:36px}.workspace.workspace :global(.download-playlist-header .downloads-description){display:none}.workspace.workspace :global(.download-batch-bar){gap:8px}.workspace.workspace :global(.download-batch-bar>.export-primary){width:auto;flex:1;padding:12px}.workspace.workspace :global(.match-all){padding:10px 12px}.workspace.workspace :global(.selection-actions){width:100%;justify-content:flex-end}.workspace.workspace :global(.download-column-head){display:none}.workspace.workspace :global(.download-matches li){grid-template-columns:1fr;gap:4px;padding:8px 4px 8px 0}.workspace.workspace :global(.download-video){grid-column:1;grid-row:auto;padding-left:54px}.workspace.workspace :global(.download-track-heading){gap:8px}.workspace.workspace :global(.download-track-heading strong){font-size:13px}.workspace.workspace :global(.download-matches .match-review-row>a){min-height:44px}.workspace.workspace :global(.download-video select){min-height:44px}.workspace.workspace :global(.download-empty){padding-block:32px}}
 @media(prefers-reduced-motion:reduce){.workspace.workspace :global(button){transition:none}}
-.workspace.workspace :global(.download-job){position:sticky;top:0;z-index:15;display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin:0 0 12px;padding:16px;background:#141210;border:1px solid var(--rule);border-radius:8px}
-.workspace.workspace :global(.download-job h2){font-size:18px;margin-right:auto}
+.workspace.workspace :global(.download-job){top:0;z-index:15;display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 12px}
+.workspace.workspace :global(.download-job h2){margin-right:auto}
 .workspace.workspace :global(.download-job>p){margin:0;color:var(--secondary);font-size:12px}
 .workspace.workspace :global(.download-job .export-primary){min-height:44px;padding:10px 16px}
 .workspace.workspace :global(.download-job progress),.workspace.workspace :global(.download-job .download-error){flex-basis:100%}
 .workspace.workspace :global(.download-content.has-job .download-batch-bar){position:static}
-@media(max-width:650px){.workspace.workspace :global(.download-job){padding:12px;gap:8px}.workspace.workspace :global(.download-job .export-primary){width:100%}}
+@media(max-width:650px){.workspace.workspace :global(.download-job){gap:8px}.workspace.workspace :global(.download-job .export-primary){width:100%}}
 
 .workspace.workspace :global(.select-all-tracks){display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;font-size:13px;white-space:nowrap}
 .workspace.workspace :global(.select-all-tracks input){width:16px;height:16px;margin:0 14px}
 .workspace.workspace :global(.select-all-tracks span){color:var(--secondary);font-size:12px;font-variant-numeric:tabular-nums}
-.workspace.workspace :global(.download-selection-actions){display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto}
-.workspace.workspace :global(.download-selection-actions button){display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:12px 20px}
-@media(max-width:650px){.workspace.workspace :global(.download-selection-actions){width:100%;margin-left:0}.workspace.workspace :global(.download-selection-actions button){flex:1;padding:12px}.workspace.workspace :global(.select-all-tracks){width:100%}.workspace.workspace :global(.select-all-tracks span){margin-left:auto}}
+.workspace.workspace :global(.download-selection-actions){align-items:center;margin-left:auto}
+.workspace.workspace :global(.download-selection-actions button){display:inline-flex;align-items:center;justify-content:center;gap:8px}
+@media(max-width:650px){.workspace.workspace :global(.download-selection-actions){margin-left:0}.workspace.workspace :global(.select-all-tracks){width:100%}.workspace.workspace :global(.select-all-tracks span){margin-left:auto}}
 
 .workspace.workspace :global(.download-destination){display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px;color:var(--secondary);font-size:12px;margin:0 0 16px;line-height:1.7}
 .workspace.workspace :global(.download-destination span){overflow-wrap:anywhere;min-width:0}
@@ -109,3 +109,49 @@
 .workspace.workspace :global(.job-track-details summary span){margin-left:8px;font-variant-numeric:tabular-nums}
 .workspace.workspace :global(.job-track-details summary:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
 @media(max-width:650px){.workspace.workspace :global(.job-file-actions){width:100%;margin:0}.workspace.workspace :global(.job-file-actions button){flex:1}.workspace.workspace :global(.job-source),.workspace.workspace :global(.job-destination){flex-basis:100%}.workspace.workspace :global(.download-job-tracks li>span:last-of-type){white-space:normal}}
+
+.workspace.workspace :global(.playlist-inline-error){margin:0 4px 10px;padding:10px 12px;border-left:2px solid var(--accent);background:#241c17;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.workspace.workspace :global(.playlist-inline-error p){margin:0 0 6px}
+.workspace.workspace :global(.playlist-inline-error button){min-height:44px;font-size:12px}
+
+.workspace.workspace :global(.source-switch){display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.workspace.workspace :global(.source-switch button){min-height:44px;font-size:12px}
+.workspace.workspace :global(.source-switch button[aria-pressed=true]){border-color:var(--accent);color:var(--accent)}
+.workspace.workspace :global(.download-sources details){font-size:12px;line-height:1.6;margin:8px 0;overflow-wrap:anywhere}
+.workspace.workspace :global(.download-sources details summary){min-height:44px;align-content:center;cursor:pointer}
+
+.workspace.workspace :global(.rekordbox-folder){margin:0}
+.workspace.workspace :global(.rekordbox-folder>summary){min-height:44px;align-content:center;padding:8px;color:var(--paper);font-size:13px;cursor:pointer;overflow-wrap:anywhere}
+.workspace.workspace :global(.rekordbox-folder>div){margin-left:14px;padding-left:6px;border-left:1px solid var(--rule)}
+
+/* Library controls and playlist workspace follow the same shell as Discover. */
+.workspace.workspace :global(.download-location-toolbar){display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;padding:4px 0 10px}
+.workspace.workspace :global(.download-location-toolbar .download-destination){flex:1;min-width:0;margin:0;display:flex;align-items:baseline;gap:6px 10px;flex-wrap:wrap}
+.workspace.workspace :global(.download-location-toolbar .download-destination span){overflow-wrap:anywhere;min-width:0}
+.workspace.workspace :global(.refresh-songs){display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;margin-left:auto;padding:8px 12px;border:1px solid var(--rule);border-radius:999px;background:transparent;color:var(--secondary);white-space:nowrap}
+.workspace.workspace :global(.refresh-songs:hover:not(:disabled)){color:var(--paper);background:var(--surface)}
+.workspace.workspace :global(.download-source-heading){color:var(--paper);padding:4px 12px 12px}
+.workspace.workspace :global(.download-source-heading h2){font-weight:750;font-size:20px}
+.workspace.workspace :global(.download-library-toolbar){display:flex;align-items:center;gap:6px;margin:8px 8px 12px}
+.workspace.workspace :global(.download-library-search){display:flex;align-items:center;gap:8px;flex:1;min-width:0;padding:0 10px;background:#211d19;border:1px solid transparent;border-radius:6px;color:var(--secondary)}
+.workspace.workspace :global(.download-library-search:focus-within){border-color:var(--paper)}
+.workspace.workspace :global(.download-library-search>svg){flex:none}
+.workspace.workspace :global(.download-library-search input){min-width:0;width:100%;min-height:40px;padding:6px 0;border:0;outline:none;background:transparent;color:var(--paper);font:400 12px 'DM Sans',sans-serif;box-shadow:none}
+.workspace.workspace :global(.download-library-search input::placeholder){color:var(--secondary)}
+.workspace.workspace :global(.refresh-library-icon){display:grid;place-items:center;min-width:40px;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--secondary)}
+.workspace.workspace :global(.refresh-library-icon:hover:not(:disabled)){background:#2b251f;color:var(--paper)}
+.workspace.workspace :global(.download-playlists){max-height:calc(100dvh - 280px)}
+.workspace.workspace :global(.download-playlists .playlist-choice){border-radius:6px;min-height:68px}
+.workspace.workspace :global(.download-playlists .playlist-choice:hover:not(:disabled)){background:#241f1a}
+.workspace.workspace :global(.download-content-top){min-height:64px}
+.workspace.workspace :global(.download-playlist-header){padding:16px 0 28px;gap:24px}
+.workspace.workspace :global(.download-content>button){border-radius:999px;background:transparent;border:1px solid var(--rule);min-height:40px;padding:8px 16px;color:var(--paper)}
+.workspace.workspace :global(.download-batch-bar){padding:20px 0;gap:12px}
+.workspace.workspace :global(.download-selection-actions){display:flex;gap:8px;flex-wrap:wrap}
+.workspace.workspace :global(.download-selection-actions button){border-radius:999px;min-height:44px;padding:10px 20px}
+.workspace.workspace :global(.download-job){background:#191715;border:1px solid var(--rule);border-radius:10px;padding:20px;margin-top:20px}
+.workspace.workspace :global(.download-column-head){padding-top:12px;padding-bottom:12px}
+.workspace.workspace :global(.download-matches li){border-radius:6px;min-height:80px}
+.workspace.workspace :global(.download-video select){border-radius:6px}
+@media(max-width:900px){.workspace.workspace :global(.download-playlists){max-height:320px}.workspace.workspace :global(.download-library-search input){min-height:44px}.workspace.workspace :global(.refresh-library-icon){width:44px;min-width:44px;height:44px}}
+@media(max-width:650px){.workspace.workspace :global(.download-playlist-header){gap:16px;padding:8px 0 20px}.workspace.workspace :global(.download-batch-bar){padding:16px 0}.workspace.workspace :global(.download-selection-actions){width:100%}.workspace.workspace :global(.download-selection-actions button){flex:1;padding:10px 14px}.workspace.workspace :global(.download-job){padding:16px}}
